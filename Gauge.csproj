@@ -40,4 +40,15 @@
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Unpackaged WinUI `dotnet publish` drops the app's merged resources index
+       (Gauge.pri). Without it, Microsoft.UI.Xaml fails to load XamlControlsResources
+       and the app crashes at startup (stowed exception 0xC000027B). Copy it from the
+       build output into the publish folder so the self-contained drop runs on a clean PC. -->
+  <Target Name="CopyAppPriToPublish" AfterTargets="Publish"
+          Condition="Exists('$(OutDir)$(AssemblyName).pri')">
+    <Copy SourceFiles="$(OutDir)$(AssemblyName).pri"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

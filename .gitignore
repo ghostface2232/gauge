@@ -20,3 +20,6 @@ desktop.ini
 
 ## Reference projects (not part of Gauge)
 Ref/
+
+## Distribution output
+dist/
