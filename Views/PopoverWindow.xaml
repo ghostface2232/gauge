@@ -13,11 +13,12 @@
          Grid a focus target. It is the element we slide + fade on show. RootBorder
          is where we round corners if we ever
          switch from DWM rounding to the transparent-window + inner-border approach. -->
-    <Grid x:Name="RootHost" Background="Transparent">
+    <Grid x:Name="RootHost" Background="Transparent" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.Resources>
             <conv:UsageLevelToBrushConverter x:Key="LevelToBrush" />
             <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
             <conv:PercentToGridLengthConverter x:Key="PercentToGridLength" />
+            <conv:EmptyStringToNullConverter x:Key="EmptyToNull" />
             <Style x:Key="BorderlessIconButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
@@ -192,6 +193,7 @@
                     <TextBlock
                         Grid.Column="0"
                         VerticalAlignment="Center"
+                        Padding="4,0,0,0"
                         Opacity="0.7"
                         Text="{Binding LastUpdatedText}"
                         Style="{StaticResource CaptionTextBlockStyle}" />
@@ -262,12 +264,12 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Opacity="0.7"
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Padding="4,0,0,0" Opacity="0.7"
                                Text="{Binding VersionText}"
                                Style="{StaticResource CaptionTextBlockStyle}" />
                     <Button Grid.Column="1" Content="{Binding ActionButtonText}"
                             Command="{Binding ActionCommand}"
-                            ToolTipService.ToolTip="{Binding StatusText}" />
+                            ToolTipService.ToolTip="{Binding StatusText, Converter={StaticResource EmptyToNull}}" />
                 </Grid>
             </Grid>
         </Border>
