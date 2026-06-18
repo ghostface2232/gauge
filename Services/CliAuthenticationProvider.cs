@@ -10,6 +10,7 @@ public sealed class CliAuthenticationProvider : IAuthenticationProvider
     private readonly ICredentialSource _credentials;
     private readonly ICliLocator _locator;
     private readonly ICliProcessRunner _runner;
+    private readonly ToolDescriptor _descriptor;
     private readonly string _command;
     private readonly string _arguments;
     private readonly SemaphoreSlim _loginGate = new(1, 1);
@@ -24,12 +25,8 @@ public sealed class CliAuthenticationProvider : IAuthenticationProvider
         _credentials = credentials;
         _locator = locator;
         _runner = runner;
-        (_command, _arguments) = tool switch
-        {
-            ToolKind.ClaudeCode => ("claude", "/login"),
-            ToolKind.Codex => ("codex", "login"),
-            _ => throw new ArgumentOutOfRangeException(nameof(tool)),
-        };
+        _descriptor = ToolCatalog.For(tool);
+        (_command, _arguments) = (_descriptor.LoginCommand, _descriptor.LoginArguments);
         State = MissingState();
     }
 
@@ -140,7 +137,7 @@ public sealed class CliAuthenticationProvider : IAuthenticationProvider
     private AuthenticationState NewState(AuthenticationStatus status, CredentialSource source, string message) => new()
     {
         Tool = Tool,
-        ToolName = Tool == ToolKind.ClaudeCode ? "Claude Code" : "Codex",
+        ToolName = _descriptor.DisplayName,
         Status = status,
         Source = source,
         Message = message,

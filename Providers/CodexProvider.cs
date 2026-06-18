@@ -33,7 +33,7 @@ public sealed class CodexProvider : IUsageProvider
         _credentials = credentials;
     }
 
-    public string ToolName => "Codex";
+    public string ToolName => ToolCatalog.For(ToolKind.Codex).DisplayName;
 
     public async Task<UsageSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {

@@ -241,21 +241,16 @@
                                    Style="{StaticResource SubtitleTextBlockStyle}" />
                     </Grid>
 
-                    <!-- Two accounts side by side, equal width and height. -->
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ContentControl Grid.Column="0" Content="{Binding Authentication[0]}"
-                                        ContentTemplate="{StaticResource AuthCardTemplate}"
-                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-                        <ContentControl Grid.Column="1" Content="{Binding Authentication[1]}"
-                                        ContentTemplate="{StaticResource AuthCardTemplate}"
-                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-                    </Grid>
+                    <!-- One card per tool, side by side at equal width and height.
+                         Data-bound (not indexed) so adding a tool needs no XAML change. -->
+                    <ItemsRepeater ItemsSource="{Binding Authentication}"
+                                   ItemTemplate="{StaticResource AuthCardTemplate}">
+                        <ItemsRepeater.Layout>
+                            <!-- MinItemWidth lets two cards share the ~328dip content width
+                                 (8dip gap); ItemsStretch=Fill then stretches them to equal width. -->
+                            <UniformGridLayout MinItemWidth="120" MinColumnSpacing="8" MinRowSpacing="8" ItemsStretch="Fill" />
+                        </ItemsRepeater.Layout>
+                    </ItemsRepeater>
                 </StackPanel>
 
                 <!-- Bottom-aligned update row: version on the left, action button on the

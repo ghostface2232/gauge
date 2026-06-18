@@ -70,7 +70,7 @@ public sealed class ClaudeProvider : IUsageProvider
         _credentials = credentials;
     }
 
-    public string ToolName => "Claude Code";
+    public string ToolName => ToolCatalog.For(ToolKind.ClaudeCode).DisplayName;
 
     public async Task<UsageSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {

@@ -58,11 +58,9 @@ public partial class App : Application
         var credentials = new CredentialSourceChain(new[] { cliCredentials });
         var locator = new CliLocator();
         var processRunner = new CliProcessRunner();
-        var authentication = new IAuthenticationProvider[]
-        {
-            new CliAuthenticationProvider(ToolKind.ClaudeCode, cliCredentials, locator, processRunner),
-            new CliAuthenticationProvider(ToolKind.Codex, cliCredentials, locator, processRunner),
-        };
+        var authentication = ToolCatalog.All
+            .Select(descriptor => new CliAuthenticationProvider(descriptor.Kind, cliCredentials, locator, processRunner))
+            .ToArray<IAuthenticationProvider>();
         _authentication = authentication.ToDictionary(provider => provider.Tool);
 
         var usageService = new UsageService(new IUsageProvider[]
