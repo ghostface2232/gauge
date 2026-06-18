@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Gauge.Models;
 using Gauge.Providers;
 using Gauge.Services;
@@ -22,6 +21,7 @@ public partial class App : Application
     private TrayIconService? _trayIcon;
     private UsageCoordinator? _coordinator;
     private UsageViewModel? _viewModel;
+    private StartupService? _startupService;
 
     public App()
     {
@@ -40,6 +40,10 @@ public partial class App : Application
         _trayIcon.LeftClicked += OnTrayLeftClicked;
         _trayIcon.StartOnBootToggled += OnTrayStartOnBootToggled;
         _trayIcon.ExitRequested += OnTrayExitRequested;
+
+        // Reflect the real run-on-startup state in the tray menu checkmark.
+        _startupService = new StartupService();
+        _trayIcon.SetStartOnBootChecked(_startupService.IsEnabled());
 
         // Data pipeline: providers → UsageService (parallel + isolated) → coordinator
         // (60s timer + cache + debounced forced refresh) → view model → UI/tray.
@@ -101,12 +105,17 @@ public partial class App : Application
 
     private void OnTrayStartOnBootToggled(object? sender, bool enabled)
     {
-        // TODO(later): register/unregister run-on-startup.
-        Debug.WriteLine($"[Gauge] Tray menu → start-on-boot toggled to {enabled} (not wired yet)");
+        // Apply, then sync the menu checkmark to the actual registry state (so a
+        // failed write reverts the check instead of lying).
+        var actual = _startupService?.SetEnabled(enabled) ?? false;
+        _trayIcon?.SetStartOnBootChecked(actual);
     }
 
     private void OnTrayExitRequested(object? sender, EventArgs e)
     {
+        // Stop the timer and cancel any in-flight ccusage process calls first, then
+        // remove the tray icon (which also restores the foreground-lock setting and
+        // unsubscribes the theme listener), then quit.
         _coordinator?.Dispose();
         _coordinator = null;
         _trayIcon?.Dispose();

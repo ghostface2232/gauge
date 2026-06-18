@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Windows.Foundation;
 using Windows.Graphics;
 using WinRT.Interop;
 
@@ -19,9 +20,12 @@ public sealed partial class PopoverWindow : Window
 {
     // --- Layout (device-independent pixels; scaled by DPI at placement time) ---
     private const double PopoverWidthDip = 360;
-    private const double PopoverHeightDip = 480;
+    private const double PopoverHeightDip = 480; // fallback height before content is measured
     private const double EdgeMarginDip = 12;
     private const double CornerRadiusDip = 8;
+    // Reserve for footer + paddings when capping the scrollable body so the whole
+    // popover stays within the work area on very tall content.
+    private const double FooterChromeAllowanceDip = 96;
 
     // --- Slide-in animation (tunable) ---
     private const double SlideOffsetY = 24;       // start offset below final position
@@ -35,6 +39,11 @@ public sealed partial class PopoverWindow : Window
     private readonly nint _hwnd;
     private bool _isShown;
     private long _lastHiddenAtTick;
+
+    // Target monitor captured when the popover opens; reused for content-driven
+    // resizes so the popover stays anchored even if the cursor later moves away.
+    private RectInt32 _workArea;
+    private double _scale = 1.0;
 
     /// <summary>Raised whenever the popover is actually shown (after the toggle guard).</summary>
     public event EventHandler? Opened;
@@ -56,6 +65,9 @@ public sealed partial class PopoverWindow : Window
         // is already set below); keep ApplyDwmRoundedCorners off in that mode.
         ApplyDwmRoundedCorners();
         RootBorder.CornerRadius = new CornerRadius(CornerRadiusDip);
+
+        // Resize the window to match content height as it loads/changes (no filler).
+        RootBorder.SizeChanged += OnContentSizeChanged;
 
         Activated += OnActivated;
 
@@ -84,8 +96,19 @@ public sealed partial class PopoverWindow : Window
 
     public void Show()
     {
-        PositionBottomRight();
+        CaptureTargetMonitor();
+
+        // Cap the scrollable body so a very tall popover still fits the work area.
+        var maxBodyDip = (_workArea.Height / _scale) - (EdgeMarginDip * 2) - FooterChromeAllowanceDip;
+        BodyScroll.MaxHeight = Math.Max(120, maxBodyDip);
+
         _isShown = true;
+
+        // Measure content up front so we open at the right height (no flash, no
+        // bottom filler); SizeChanged keeps it matched as data loads/changes.
+        RootBorder.Measure(new Size(PopoverWidthDip, _workArea.Height / _scale));
+        PositionAndResize(RootBorder.DesiredSize.Height);
+
         AppWindow.Show(activateWindow: true);
         Activate();
         // As a tray/background app, Activate() alone often does not make the window the
@@ -141,22 +164,48 @@ public sealed partial class PopoverWindow : Window
             _hwnd, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
     }
 
-    private void PositionBottomRight()
+    private void OnContentSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Keep the window height matched to the content as it loads/changes.
+        if (_isShown)
+        {
+            PositionAndResize(RootBorder.ActualHeight);
+        }
+    }
+
+    private void CaptureTargetMonitor()
     {
         // Anchor to the monitor under the cursor (where the tray click happened) so we
         // follow the user across monitors. WorkArea excludes the taskbar wherever it is.
         NativeMethods.GetCursorPos(out var cursor);
         var area = DisplayArea.GetFromPoint(new PointInt32(cursor.X, cursor.Y), DisplayAreaFallback.Nearest);
-        var work = area.WorkArea;
+        _workArea = area.WorkArea;
+        _scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+    }
 
-        // WorkArea is in physical pixels; convert our DIP sizes with the window's DPI.
-        var scale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
-        var width = (int)Math.Round(PopoverWidthDip * scale);
-        var height = (int)Math.Round(PopoverHeightDip * scale);
-        var margin = (int)Math.Round(EdgeMarginDip * scale);
+    private void PositionAndResize(double contentHeightDip)
+    {
+        if (contentHeightDip <= 0)
+        {
+            contentHeightDip = PopoverHeightDip; // fallback before first layout
+        }
 
-        var x = work.X + work.Width - width - margin;
-        var y = work.Y + work.Height - height - margin;
+        // WorkArea is physical pixels; convert DIP sizes with the captured DPI.
+        var width = (int)Math.Round(PopoverWidthDip * _scale);
+        var margin = (int)Math.Round(EdgeMarginDip * _scale);
+        var maxHeight = _workArea.Height - (margin * 2);
+        var height = Math.Min((int)Math.Round(contentHeightDip * _scale), maxHeight);
+
+        var x = _workArea.X + _workArea.Width - width - margin;
+        var y = _workArea.Y + _workArea.Height - height - margin;
+
+        // Skip if unchanged to avoid relayout churn from SizeChanged.
+        if (AppWindow.Size.Width == width && AppWindow.Size.Height == height
+            && AppWindow.Position.X == x && AppWindow.Position.Y == y)
+        {
+            return;
+        }
+
         AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
     }
 

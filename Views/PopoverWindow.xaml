@@ -26,15 +26,32 @@
         </Grid.KeyboardAccelerators>
 
         <!-- Generous Quick-Settings-like padding/spacing; exact values are easy to tune. -->
-        <Border x:Name="RootBorder" Padding="16">
+        <!-- Top-aligned so the border sizes to its content; the window height is then
+             matched to it in code (no bottom filler). -->
+        <Border x:Name="RootBorder" Padding="16" VerticalAlignment="Top">
             <Grid RowSpacing="14">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Body: one card per tool; each card shows all of its windows at once. -->
-                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+                <!-- Body: cards when there is data, otherwise a guidance message. -->
+                <Grid Grid.Row="0">
+                <!-- Centered guidance shown when no tool has any data. -->
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap"
+                    Opacity="0.7"
+                    Text="{Binding EmptyMessage}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
+                <ScrollViewer
+                    x:Name="BodyScroll"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollMode="Disabled"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                     <ItemsControl ItemsSource="{Binding Cards}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -122,6 +139,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+                </Grid>
 
                 <!-- Footer: last-updated, manual refresh, settings gear placeholder. -->
                 <Grid Grid.Row="1" ColumnSpacing="6">

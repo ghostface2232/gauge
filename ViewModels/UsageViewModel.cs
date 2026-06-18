@@ -17,6 +17,8 @@ public sealed partial class UsageViewModel : ObservableObject
     {
         LastUpdatedText = "갱신 전";
         TrayTooltipSummary = "Gauge";
+        EmptyMessage = "사용량을 불러오는 중…";
+        IsEmpty = true;
         RefreshCommand = new RelayCommand(() => RefreshRequested?.Invoke(this, EventArgs.Empty));
     }
 
@@ -38,6 +40,14 @@ public sealed partial class UsageViewModel : ObservableObject
     [ObservableProperty]
     public partial string TrayTooltipSummary { get; set; }
 
+    /// <summary>True when no tool has any window data (shows a guidance message).</summary>
+    [ObservableProperty]
+    public partial bool IsEmpty { get; set; }
+
+    /// <summary>User-facing message shown when <see cref="IsEmpty"/> is true.</summary>
+    [ObservableProperty]
+    public partial string EmptyMessage { get; set; }
+
     public void Apply(UsageState state)
     {
         LastUpdatedAt = state.LastUpdatedAt;
@@ -46,6 +56,30 @@ public sealed partial class UsageViewModel : ObservableObject
             : "갱신 전";
         TrayTooltipSummary = BuildTrayTooltipSummary(state);
         RefreshCards(state);
+
+        var anyData = state.Tools.Any(t => t.Snapshot is { Windows.Count: > 0 });
+        IsEmpty = !anyData;
+        if (!anyData)
+        {
+            EmptyMessage = BuildEmptyMessage(state);
+        }
+    }
+
+    private static string BuildEmptyMessage(UsageState state)
+    {
+        if (state.Tools.Count == 0)
+        {
+            return "사용량을 불러오는 중…";
+        }
+
+        // All providers errored with no cached value → ccusage likely unavailable.
+        if (state.Tools.All(t => t.LastRefreshFailed && t.Snapshot is null))
+        {
+            return "사용량 정보를 찾을 수 없습니다.\nccusage가 설치되어 있는지 확인하세요.";
+        }
+
+        // Providers ran but returned nothing (e.g. tools not used yet).
+        return "사용 기록이 아직 없습니다.";
     }
 
     private void RefreshCards(UsageState state)
