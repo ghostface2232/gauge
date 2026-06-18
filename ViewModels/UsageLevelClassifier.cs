@@ -8,7 +8,7 @@ namespace Gauge.ViewModels;
 /// </summary>
 public static class UsageLevelClassifier
 {
-    public const double CautionThreshold = 0.75;
+    public const double CautionThreshold = 0.70;
     public const double DangerThreshold = 0.90;
 
     public static UsageLevel Classify(double ratio)

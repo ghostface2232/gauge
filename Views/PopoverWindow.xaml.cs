@@ -23,6 +23,9 @@ public sealed partial class PopoverWindow : Window
     private const double PopoverHeightDip = 480; // fallback height before content is measured
     private const double EdgeMarginDip = 12;
     private const double CornerRadiusDip = 8;
+    // DesiredSize can land on a fractional physical pixel at 125/150% DPI. Keep a
+    // small client-area inset so the final footer row never touches the window edge.
+    private const double ContentHeightSafetyDip = 4;
     // Reserve for footer + paddings when capping the scrollable body so the whole
     // popover stays within the work area on very tall content.
     private const double FooterChromeAllowanceDip = 96;
@@ -49,6 +52,9 @@ public sealed partial class PopoverWindow : Window
     // SizeChanged synchronously, which would call back into the resize logic.
     private bool _isResizing;
     private bool _isViewTransitioning;
+    private double _usageViewHeightDip;
+    private bool _usageLayoutRefreshPending;
+    private Storyboard? _viewTransitionStoryboard;
 
     /// <summary>Raised whenever the popover is actually shown (after the toggle guard).</summary>
     public event EventHandler? Opened;
@@ -71,6 +77,7 @@ public sealed partial class PopoverWindow : Window
         // window background transparent and round RootBorder instead (its CornerRadius
         // is already set below); keep ApplyDwmRoundedCorners off in that mode.
         ApplyDwmRoundedCorners();
+        RemoveDwmWindowBorder();
         RootBorder.CornerRadius = new CornerRadius(CornerRadiusDip);
 
         // Resize the window to match content height as it loads/changes (no filler).
@@ -135,6 +142,21 @@ public sealed partial class PopoverWindow : Window
     /// <summary>Binds the popover content to a view model for data display.</summary>
     public void BindViewModel(object viewModel) => RootHost.DataContext = viewModel;
 
+    /// <summary>
+    /// Re-measures the usage view after a completed coordinator update. The enqueue
+    /// lets bindings and ItemsControl containers finish their layout first.
+    /// </summary>
+    public void RefreshUsageLayout()
+    {
+        _usageLayoutRefreshPending = true;
+        RootHost.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_isShown || _isViewTransitioning || RootBorder.Visibility != Visibility.Visible) return;
+            MeasureAndStoreUsageHeight();
+            PositionAndResize(_usageViewHeightDip);
+        });
+    }
+
     /// <summary>Binds the settings view hosted inside this popover.</summary>
     public void BindSettingsViewModel(object viewModel) => SettingsBorder.DataContext = viewModel;
 
@@ -142,6 +164,7 @@ public sealed partial class PopoverWindow : Window
     {
         _isShown = false;
         _lastHiddenAtTick = Environment.TickCount64;
+        ResetToUsageView();
         AppWindow.Hide();
     }
 
@@ -174,10 +197,20 @@ public sealed partial class PopoverWindow : Window
             _hwnd, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
     }
 
+    private void RemoveDwmWindowBorder()
+    {
+        // Windows 11 can draw a contrasting one-pixel DWM border even when the
+        // presenter has no Win32 border/title bar. DWMWA_COLOR_NONE suppresses only
+        // that outline; acrylic and rounded corners remain active.
+        var color = NativeMethods.DWMWA_COLOR_NONE;
+        _ = NativeMethods.DwmSetWindowAttribute(
+            _hwnd, NativeMethods.DWMWA_BORDER_COLOR, ref color, sizeof(int));
+    }
+
     private void OnContentSizeChanged(object sender, SizeChangedEventArgs e)
     {
         // Keep the window height matched to the content as it loads/changes.
-        if (_isShown && !_isViewTransitioning)
+        if (_isShown && !_isViewTransitioning && RootBorder.Visibility == Visibility.Visible)
         {
             ResizeToContent();
         }
@@ -201,9 +234,14 @@ public sealed partial class PopoverWindow : Window
         _isResizing = true;
         try
         {
-            var activeView = SettingsBorder.Visibility == Visibility.Visible ? SettingsBorder : RootBorder;
-            activeView.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
-            PositionAndResize(activeView.DesiredSize.Height);
+            if (SettingsBorder.Visibility == Visibility.Visible && _usageViewHeightDip > 0)
+            {
+                PositionAndResize(_usageViewHeightDip);
+                return;
+            }
+
+            MeasureAndStoreUsageHeight();
+            PositionAndResize(_usageViewHeightDip);
         }
         finally
         {
@@ -232,7 +270,9 @@ public sealed partial class PopoverWindow : Window
         var width = (int)Math.Round(PopoverWidthDip * _scale);
         var margin = (int)Math.Round(EdgeMarginDip * _scale);
         var maxHeight = _workArea.Height - (margin * 2);
-        var height = Math.Min((int)Math.Round(contentHeightDip * _scale), maxHeight);
+        var height = Math.Min(
+            (int)Math.Ceiling((contentHeightDip + ContentHeightSafetyDip) * _scale),
+            maxHeight);
 
         var x = _workArea.X + _workArea.Width - width - margin;
         var y = _workArea.Y + _workArea.Height - height - margin;
@@ -277,6 +317,7 @@ public sealed partial class PopoverWindow : Window
         Storyboard.SetTargetProperty(fade, "Opacity");
 
         var storyboard = new Storyboard();
+        _viewTransitionStoryboard = storyboard;
         storyboard.Children.Add(slide);
         storyboard.Children.Add(fade);
         storyboard.Begin();
@@ -329,11 +370,11 @@ public sealed partial class PopoverWindow : Window
         outgoing.Opacity = 1;
         outgoingTransform.X = 0;
 
-        // Hold the larger of both view heights during the overlap so neither sliding
-        // surface is clipped; settle to the destination height after completion.
-        incoming.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
-        outgoing.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
-        PositionAndResize(Math.Max(incoming.DesiredSize.Height, outgoing.DesiredSize.Height));
+        if (ReferenceEquals(incoming, RootBorder) && _usageLayoutRefreshPending)
+        {
+            MeasureAndStoreUsageHeight();
+            PositionAndResize(_usageViewHeightDip);
+        }
 
         var duration = new Duration(TimeSpan.FromMilliseconds(durationMs));
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -348,15 +389,37 @@ public sealed partial class PopoverWindow : Window
             incoming, "Opacity", 0, 1, duration, ease));
         storyboard.Completed += (_, _) =>
         {
+            if (!ReferenceEquals(_viewTransitionStoryboard, storyboard)) return;
+            _viewTransitionStoryboard = null;
             outgoing.Visibility = Visibility.Collapsed;
             outgoing.Opacity = 1;
             outgoingTransform.X = 0;
             incoming.Opacity = 1;
             incomingTransform.X = 0;
             _isViewTransitioning = false;
-            ResizeToContent();
         };
         storyboard.Begin();
+    }
+
+    private void ResetToUsageView()
+    {
+        _viewTransitionStoryboard?.Stop();
+        _viewTransitionStoryboard = null;
+        _isViewTransitioning = false;
+
+        RootBorder.Visibility = Visibility.Visible;
+        RootBorder.Opacity = 1;
+        UsageViewTransform.X = 0;
+        SettingsBorder.Visibility = Visibility.Collapsed;
+        SettingsBorder.Opacity = 1;
+        SettingsViewTransform.X = 0;
+    }
+
+    private void MeasureAndStoreUsageHeight()
+    {
+        RootBorder.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
+        _usageViewHeightDip = RootBorder.DesiredSize.Height;
+        _usageLayoutRefreshPending = false;
     }
 
     private static DoubleAnimation CreateTransitionAnimation(
@@ -386,7 +449,9 @@ public sealed partial class PopoverWindow : Window
         public const int GWL_EXSTYLE = -20;
         public const long WS_EX_TOOLWINDOW = 0x00000080;
         public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        public const int DWMWA_BORDER_COLOR = 34;
         public const int DWMWCP_ROUND = 2;
+        public const int DWMWA_COLOR_NONE = unchecked((int)0xFFFFFFFE);
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
         public static extern nint GetWindowLongPtr(nint hWnd, int nIndex);

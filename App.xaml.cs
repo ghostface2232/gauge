@@ -95,6 +95,7 @@ public partial class App : Application
     {
         // Coordinator marshals this to the UI thread.
         _viewModel?.Apply(state);
+        _popover?.RefreshUsageLayout();
         if (_viewModel is not null)
         {
             _trayIcon?.UpdateToolTip(_viewModel.TrayTooltipSummary, _viewModel.LastUpdatedAt ?? DateTimeOffset.Now);

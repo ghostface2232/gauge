@@ -13,8 +13,8 @@
                  use site). Chosen to read on both light/dark acrylic; if per-theme
                  tuning is wanted later, move these into ResourceDictionary.ThemeDictionaries. -->
             <SolidColorBrush x:Key="UsageOkBrush" Color="#2E9E4F" />
-            <SolidColorBrush x:Key="UsageCautionBrush" Color="#E0A100" />
-            <SolidColorBrush x:Key="UsageDangerBrush" Color="#D13438" />
+            <SolidColorBrush x:Key="UsageCautionBrush" Color="#FEAD0C" />
+            <SolidColorBrush x:Key="UsageDangerBrush" Color="#FE140C" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

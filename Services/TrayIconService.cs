@@ -45,8 +45,7 @@ public sealed class TrayIconService : IDisposable
     private const string DarkIconStem = "gauge_icon_dark";
 
     // Usage thresholds that select the icon variant. These match the asset file
-    // names (_70 / _90), so they intentionally live here rather than reusing the
-    // popover's UsageLevelClassifier (whose caution threshold is 0.75).
+    // names (_70 / _90), matching the popover's usage-level thresholds.
     private const double CautionRatio = 0.70;
     private const double DangerRatio = 0.90;
 
