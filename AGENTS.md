@@ -27,7 +27,7 @@ Gauge is a Windows system-tray app that monitors Claude Code and Codex usage. Cl
 
 - Releases are published to GitHub Releases, tagged `v<Version>` (matching `Gauge.csproj`), with `GaugeSetup-win-x64.exe` as the asset. Use `release.ps1` (local, via `gh`) or push a `v*` tag to trigger `.github/workflows/release.yml`.
 - `UpdateService` checks `releases/latest` against the running assembly version, downloads the installer asset, and launches it with `/SILENT`; the app then exits (`UpdateViewModel.ExitRequested` → `App.ShutdownAndExit`) so the installer can replace files and relaunch.
-- Update checks are automatic-on-launch (quiet) plus on-demand from the settings card. Applying an update is always a deliberate click — never auto-installed.
+- Update checks are automatic-on-launch (quiet) plus on-demand from the settings footer's single action button ("업데이트 확인" → "업데이트" once a newer release is found). Applying an update is always a deliberate click — never auto-installed.
 - The asset name `GaugeSetup-win-x64.exe` is contract: it is hard-coded in `UpdateService` and produced by `installer/Gauge.iss` (`OutputBaseFilename`). Keep them in sync.
 
 ## Core architecture rule

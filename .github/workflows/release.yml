@@ -33,4 +33,10 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" dist/GaugeSetup-win-x64.exe --title "${{ github.ref_name }}" --generate-notes
+        # Idempotent: if the release already exists (e.g. created locally by
+        # release.ps1, whose tag push also triggers this workflow), just replace
+        # the installer asset instead of failing.
+        run: >
+          gh release create "${{ github.ref_name }}" dist/GaugeSetup-win-x64.exe
+          --title "${{ github.ref_name }}" --generate-notes
+          || gh release upload "${{ github.ref_name }}" dist/GaugeSetup-win-x64.exe --clobber
