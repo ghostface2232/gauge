@@ -85,6 +85,12 @@ public sealed partial class PopoverWindow : Window
         _isShown = true;
         AppWindow.Show(activateWindow: true);
         Activate();
+        // As a tray/background app, Activate() alone often does not make the window the
+        // real foreground window, so DesktopAcrylic renders its inactive fallback (a
+        // solid, near-white fill) until the user clicks it. Force foreground so the
+        // acrylic engages immediately. Succeeds because the foreground-lock timeout was
+        // zeroed at startup (see TrayIconService.DisableForegroundLock).
+        _ = NativeMethods.SetForegroundWindow(_hwnd);
         RootHost.Focus(FocusState.Programmatic); // so ESC and light dismiss work
         PlayShowAnimation();
     }
@@ -209,6 +215,10 @@ public sealed partial class PopoverWindow : Window
 
         [DllImport("user32.dll")]
         public static extern uint GetDpiForWindow(nint hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetForegroundWindow(nint hWnd);
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
