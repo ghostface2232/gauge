@@ -36,10 +36,19 @@ public sealed class TrayIconService : IDisposable
     // Keeps the left edge of every item clean (no reserved check/icon column).
     private const string CheckedGlyph = "✓";
 
-    // Tray icon assets. The default has dark lines (for a light taskbar); the dark
-    // variant has white lines (for a dark taskbar).
-    private const string LightThemeIconFile = "gauge_icon.ico";
-    private const string DarkThemeIconFile = "gauge_icon_dark.ico";
+    // Tray icon assets. Two dimensions:
+    //   • taskbar theme — the light stem has dark lines (for a light taskbar), the
+    //     dark stem has white lines (for a dark taskbar);
+    //   • usage level — a "_70" / "_90" suffix marks the caution/danger variants.
+    // Final file name = "{stem}{levelSuffix}.ico", e.g. gauge_icon_dark_90.ico.
+    private const string LightIconStem = "gauge_icon";
+    private const string DarkIconStem = "gauge_icon_dark";
+
+    // Usage thresholds that select the icon variant. These match the asset file
+    // names (_70 / _90), so they intentionally live here rather than reusing the
+    // popover's UsageLevelClassifier (whose caution threshold is 0.75).
+    private const double CautionRatio = 0.70;
+    private const double DangerRatio = 0.90;
 
     // Minimum width applied to each menu item. The item's text column then
     // stretches to fill it, pushing the right-aligned indicator to the far edge
@@ -58,6 +67,10 @@ public sealed class TrayIconService : IDisposable
     private readonly DispatcherQueue? _dispatcher = DispatcherQueue.GetForCurrentThread();
     // Held to keep the ColorValuesChanged subscription alive for live theme switches.
     private readonly UISettings _uiSettings = new();
+
+    // Current usage-level suffix ("" / "_70" / "_90"). Combined with the taskbar
+    // theme to pick the icon asset; survives theme switches.
+    private string _levelSuffix = string.Empty;
 
     // Held so we can dispose the previous GDI icon handle when swapping icons.
     private Icon? _currentIcon;
@@ -139,8 +152,43 @@ public sealed class TrayIconService : IDisposable
     }
 
     /// <summary>
-    /// Swaps the tray icon bitmap at runtime. A later step will pass a freshly
-    /// rendered icon recolored/badged for the current usage level.
+    /// Updates the tray icon to reflect the highest usage ratio across all tools:
+    /// normal below 70%, the caution variant at ≥70%, the danger variant at ≥90%.
+    /// No-op (no GDI churn) when the resulting variant is unchanged.
+    /// </summary>
+    public void UpdateUsageLevel(double highestRatio)
+    {
+        var suffix = SuffixForRatio(highestRatio);
+        if (suffix == _levelSuffix)
+        {
+            return;
+        }
+
+        _levelSuffix = suffix;
+        if (LoadThemedIcon() is { } icon)
+        {
+            UpdateIcon(icon);
+        }
+    }
+
+    private static string SuffixForRatio(double ratio)
+    {
+        if (double.IsNaN(ratio))
+        {
+            ratio = 0;
+        }
+
+        if (ratio >= DangerRatio)
+        {
+            return "_90";
+        }
+
+        return ratio >= CautionRatio ? "_70" : string.Empty;
+    }
+
+    /// <summary>
+    /// Swaps the tray icon bitmap at runtime (used by both the usage-level and the
+    /// taskbar-theme paths). Disposes the previous GDI handle after the swap.
     /// </summary>
     public void UpdateIcon(Icon icon)
     {
@@ -251,21 +299,21 @@ public sealed class TrayIconService : IDisposable
 
     private Icon? LoadThemedIcon()
     {
-        var fileName = IsTaskbarDarkTheme() ? DarkThemeIconFile : LightThemeIconFile;
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", fileName);
-        if (File.Exists(path))
+        var stem = IsTaskbarDarkTheme() ? DarkIconStem : LightIconStem;
+
+        // Preferred asset for the current theme + usage level, then progressively
+        // looser fallbacks: same theme without the level suffix, then the light
+        // default. Keeps the icon sensible even if a variant is missing.
+        foreach (var fileName in new[] { $"{stem}{_levelSuffix}.ico", $"{stem}.ico", $"{LightIconStem}.ico" })
         {
-            return new Icon(path);
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", fileName);
+            if (File.Exists(path))
+            {
+                return new Icon(path);
+            }
         }
 
-        // Fall back to the default icon if the themed variant is missing.
-        var fallback = Path.Combine(AppContext.BaseDirectory, "Assets", LightThemeIconFile);
-        if (File.Exists(fallback))
-        {
-            return new Icon(fallback);
-        }
-
-        Debug.WriteLine($"[Gauge] Tray icon asset not found: {path}");
+        Debug.WriteLine($"[Gauge] Tray icon asset not found for stem '{stem}{_levelSuffix}'.");
         return null;
     }
 

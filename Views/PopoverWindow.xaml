@@ -63,10 +63,22 @@
                                     BorderThickness="1"
                                     CornerRadius="8">
                                     <StackPanel Spacing="10">
-                                        <TextBlock
+                                        <!-- Tool name + plan tier (lighter, e.g. "Max 5x" / "Plus"). -->
+                                        <StackPanel
+                                            Orientation="Horizontal"
                                             Margin="0,0,0,4"
-                                            Text="{Binding ToolName}"
-                                            Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                            Spacing="6">
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                Text="{Binding ToolName}"
+                                                Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                Opacity="0.5"
+                                                Text="{Binding Plan}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" />
+                                        </StackPanel>
 
                                         <!-- One row per window the tool has (5시간 / 주간). -->
                                         <ItemsControl

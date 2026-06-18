@@ -2,7 +2,7 @@
 
 ## Project: Gauge
 
-Gauge is a Windows system-tray app that monitors Claude Code and Codex usage. Clicking the tray icon opens a small popover at the bottom-right screen corner, styled like the Windows 11 Quick Settings panel. It shows 5-hour session usage and weekly usage, switchable. v1 scope is Claude Code and Codex only; Gemini and Antigravity are intentionally excluded.
+Gauge is a Windows system-tray app that monitors Claude Code and Codex usage. Clicking the tray icon opens a small popover at the bottom-right screen corner, styled like the Windows 11 Quick Settings panel. It shows 5-hour session usage and weekly usage together per tool. v1 scope is Claude Code and Codex only; Gemini and Antigravity are intentionally excluded.
 
 ## Tech stack
 
@@ -10,7 +10,7 @@ Gauge is a Windows system-tray app that monitors Claude Code and Codex usage. Cl
 - WinUI 3 via Windows App SDK 2.1.x stable
 - Deployment: unpackaged win32, self-contained. No MSIX.
 - MVVM: CommunityToolkit.Mvvm
-- Data: ccusage CLI invoked as a subprocess, parsed from --json output
+- Data: each tool's official OAuth usage API, called over HTTPS with the token the tool's own CLI stores locally (read-only)
 - Single instance only; second launch exits silently
 
 ## Core architecture rule
@@ -19,31 +19,32 @@ Separate data collection from UI. This is the most important constraint in the p
 
 - Every data source implements IUsageProvider with GetSnapshotAsync(CancellationToken).
 - All providers normalize their results into one shared UsageSnapshot model.
-- The UI and ViewModel depend only on UsageSnapshot, never on a provider's implementation or on ccusage specifics.
-- Rationale: v1 reads usage via ccusage; v1.5 may swap to OAuth usage endpoints. That swap must touch provider implementations only, not the model or the UI.
+- The UI and ViewModel depend only on UsageSnapshot, never on a provider's implementation or on a data-source's specifics.
+- Rationale: the data source has already been swapped once (ccusage → OAuth usage APIs) with zero UI changes. Any future swap must touch provider implementations only, not the model or the UI.
 
 ## UsageSnapshot model
 
 - One snapshot represents one tool at one point in time.
-- Fields: tool name, and a list of usage windows.
+- Fields: tool name, optional plan label (e.g. "Max 5x", "Plus"), and a list of usage windows.
 - Each window has: type (e.g. fiveHour, weekly), used ratio (0-1), reset time, display label.
 - Windows are a list because tools differ. A tool may expose a 5-hour window, a weekly window, both, or neither. The UI renders only the windows a tool actually has. Do not hardcode the assumption that every tool has exactly a 5-hour and a weekly window.
 
-## Data layer
+Providers read each tool's **real** rate-limit usage from its official OAuth usage API — the same figures the tool's own `/usage` shows — over one shared HttpClient. The OAuth token is read from the file the tool's CLI already maintains; it is read-only (never written back) so we never race the CLI's own token rotation.
 
-- Invoke ccusage through one shared subprocess service that accepts executable, args, and a timeout (default 10s).
-- Resolve the globally installed ccusage on PATH (via cmd or absolute-path lookup as needed on Windows).
-- ClaudeProvider: ccusage blocks --json for the active 5-hour window, ccusage weekly --json for weekly.
-- CodexProvider: ccusage codex daily --json and ccusage codex weekly --json. Codex 5-hour granularity via ccusage may be unreliable; if it cannot be obtained cleanly, omit that window and show weekly only, and leave a code comment noting the limitation.
-- Never assume the JSON schema from memory. First print the real output of the installed ccusage version, then write parsing against that actual structure.
-- The 5-hour ratio from ccusage is an estimate and may differ from the official figure shown by the tool's own usage command. This is accepted in v1.
+- ClaudeProvider: `GET https://api.anthropic.com/api/oauth/usage` with headers `Authorization: Bearer <token>` and `anthropic-beta: oauth-2025-04-20`. Token, plan, and reset tier come from `%USERPROFILE%\.claude\.credentials.json` (`claudeAiOauth.accessToken`, `subscriptionType`, `rateLimitTier`). Response `five_hour`/`seven_day` → `{utilization 0-100, resets_at ISO8601}`.
+- CodexProvider: `GET https://chatgpt.com/backend-api/wham/usage` with `Authorization: Bearer <token>` and `ChatGPT-Account-Id`. Token from `%USERPROFILE%\.codex\auth.json` (`tokens.access_token`, `tokens.account_id`). Response `plan_type` plus `rate_limit.primary_window` (5-hour) / `secondary_window` (weekly) → `{used_percent, reset_at epochSeconds}`.
+- Plan label: Claude maps `subscriptionType`+`rateLimitTier` (e.g. `max` + `…max_5x`/`…max_20x` → "Max 5x"/"Max 20x"); Codex maps `plan_type` (plus/pro/…). The plan is reported even when the usage call fails, since it comes from the credential/response separately.
+- Use an honest `User-Agent: Gauge/1.0`; do not impersonate another client.
+- Never assume the JSON schema from memory. Inspect a live response from the real endpoint first, then write parsing against that actual structure.
+- Why not ccusage: ccusage only counts tokens from local logs — it has no access to actual quotas or reset schedules. Its activity-based blocks, calendar-Monday weeks, and historical-max normalization do not match the real rate-limit windows, so the percentages and resets were wrong. It was removed.
+- No token refresh is implemented. On an expired token or any HTTP/network error, the provider returns an empty window list (still carrying the plan when known); the coordinator keeps showing the last good snapshot. The token stays fresh because the tool's own CLI rotates it on use.
 
 ## Tray icon
 
 - Try H.NotifyIcon.WinUI first.
 - If it conflicts with Windows App SDK 2.1.x or fails to build, remove it and implement the tray icon with Win32 Shell_NotifyIcon via CsWin32, using a hidden message window to receive click events. This path has no SDK-version dependency. Record which path was taken.
-- The icon must be redrawable at runtime so its color or badge can reflect the current usage level.
-- Left-click toggles the popover. Right-click opens a context menu: refresh, start-on-boot toggle, exit.
+- The icon is redrawable at runtime and swaps among themed variants by the highest usage level (normal / ≥70% / ≥90%), for both light and dark taskbars.
+- Left-click toggles the popover. Right-click opens a context menu: start-on-boot toggle, exit.
 
 ## Popover window
 
@@ -69,13 +70,14 @@ This is a separate borderless AppWindow, not a WinUI Flyout.
 
 - A single provider's exception must never block other providers' snapshots or the UI update.
 - A failed provider shows an empty state or its last successful value.
-- ccusage may be missing, or return empty for a tool that has never been used. Treat these as normal flows with a clear in-app message, not as crashes.
+- A credential file may be missing, a token expired, or the network unreachable. Treat these as normal flows with a clear in-app message, not as crashes.
 
 ## UI rules
 
-- A segmented control (or two toggles) switches between the 5-hour session view and the weekly view.
-- One card per tool, stacked vertically: tool name, a progress bar for the selected window, a percent number, and time until reset.
-- If a tool lacks the selected window, show a no-data state for that card without breaking.
+- One card per tool shows all of that tool's windows (5-hour and weekly) together — there is no view switch.
+- Card header: tool name with the plan label beside it in a lighter font (e.g. "Claude Code  Max 5x").
+- Each window renders a row: a label, a progress bar, a percent number, and time until reset.
+- If a tool has no windows at all, show a no-data state for that card without breaking.
 - Progress bar color steps by usage level (ok / caution / danger). Define colors as theme resources, never hardcoded. Extract threshold boundaries (e.g. 75%, 90%) as named constants.
 - Always show the percent number, not color alone, for accessibility.
 - Update the tray icon to reflect the highest usage level so state is glanceable without opening the popover.
@@ -85,5 +87,5 @@ This is a separate borderless AppWindow, not a WinUI Flyout.
 
 - Nullable reference types enabled.
 - async/await throughout; never block on async.
-- Isolate all subprocess calls and JSON parsing with exception handling and timeouts.
+- Isolate all network calls and JSON parsing with exception handling and timeouts.
 - No hardcoded colors and no magic numbers for thresholds; use theme resources and named constants.

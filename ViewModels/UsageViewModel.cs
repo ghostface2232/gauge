@@ -48,8 +48,21 @@ public sealed partial class UsageViewModel : ObservableObject
     [ObservableProperty]
     public partial string EmptyMessage { get; set; }
 
+    /// <summary>
+    /// Highest usage ratio (0–1) across every tool/window, used to pick the tray
+    /// icon variant. 0 when there is no data. Not bound by the UI, so a plain property.
+    /// </summary>
+    public double HighestUsageRatio { get; private set; }
+
     public void Apply(UsageState state)
     {
+        HighestUsageRatio = state.Tools
+            .Where(t => t.Snapshot is { Windows.Count: > 0 })
+            .SelectMany(t => t.Snapshot!.Windows)
+            .Select(w => w.UsedRatio)
+            .DefaultIfEmpty(0)
+            .Max();
+
         LastUpdatedAt = state.LastUpdatedAt;
         LastUpdatedText = state.LastUpdatedAt is { } updated
             ? $"{updated.ToLocalTime():HH:mm} 갱신"

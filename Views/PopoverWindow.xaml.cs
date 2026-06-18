@@ -45,6 +45,10 @@ public sealed partial class PopoverWindow : Window
     private RectInt32 _workArea;
     private double _scale = 1.0;
 
+    // Guards against re-entrancy: MoveAndResize triggers a layout pass that fires
+    // SizeChanged synchronously, which would call back into the resize logic.
+    private bool _isResizing;
+
     /// <summary>Raised whenever the popover is actually shown (after the toggle guard).</summary>
     public event EventHandler? Opened;
 
@@ -104,10 +108,9 @@ public sealed partial class PopoverWindow : Window
 
         _isShown = true;
 
-        // Measure content up front so we open at the right height (no flash, no
+        // Size to content up front so we open at the right height (no flash, no
         // bottom filler); SizeChanged keeps it matched as data loads/changes.
-        RootBorder.Measure(new Size(PopoverWidthDip, _workArea.Height / _scale));
-        PositionAndResize(RootBorder.DesiredSize.Height);
+        ResizeToContent();
 
         AppWindow.Show(activateWindow: true);
         Activate();
@@ -169,7 +172,34 @@ public sealed partial class PopoverWindow : Window
         // Keep the window height matched to the content as it loads/changes.
         if (_isShown)
         {
-            PositionAndResize(RootBorder.ActualHeight);
+            ResizeToContent();
+        }
+    }
+
+    /// <summary>
+    /// Resizes the window to the popover's intrinsic content height.
+    /// We measure <see cref="RootBorder"/> with the fixed popover width and an
+    /// UNBOUNDED height, so the result is the content's natural size and does not
+    /// depend on the window's current size. (Reading ActualHeight here instead would
+    /// feed the window's arranged — and therefore bounded — height back into the
+    /// window size, collapsing it toward the minimum with each pass.)
+    /// </summary>
+    private void ResizeToContent()
+    {
+        if (_isResizing)
+        {
+            return;
+        }
+
+        _isResizing = true;
+        try
+        {
+            RootBorder.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
+            PositionAndResize(RootBorder.DesiredSize.Height);
+        }
+        finally
+        {
+            _isResizing = false;
         }
     }
 

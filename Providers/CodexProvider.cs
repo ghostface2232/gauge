@@ -1,98 +1,129 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text.Json;
 using Gauge.Models;
 using Gauge.Providers.Internal;
-using Gauge.Services;
 
 namespace Gauge.Providers;
 
 /// <summary>
-/// Reads Codex usage via ccusage.
+/// Reads Codex usage from the ChatGPT backend usage endpoint
+/// (<c>GET https://chatgpt.com/backend-api/wham/usage</c>) using the OAuth token the
+/// Codex CLI stores in <c>~/.codex/auth.json</c>. This returns the real 5-hour
+/// (primary) and weekly (secondary) rate-limit utilization and reset times, plus the
+/// plan tier — the same data the CLI itself sees, and always current (unlike scanning
+/// local session logs, which go stale once Codex hasn't run for a while).
 ///
-/// LIMITATION: ccusage (v20) does not provide a 5-hour/blocks report for Codex, and
-/// "ccusage codex weekly" is explicitly unsupported ("Use ccusage codex daily").
-/// So Codex exposes <b>weekly only</b>, derived by aggregating <c>ccusage codex daily
-/// --json</c> into weeks (Monday-start). The 5-hour window is intentionally omitted
-/// because it cannot be obtained cleanly for Codex.
-///
-/// As with Claude, there is no quota in the data, so the weekly ratio is an estimate
-/// normalized against the busiest week.
+/// Degrades gracefully: a missing credential or network error yields an empty window
+/// list, and the coordinator keeps showing the last good snapshot.
 /// </summary>
 public sealed class CodexProvider : IUsageProvider
 {
-    private readonly CcusageClient _ccusage;
+    private const string UsageUrl = "https://chatgpt.com/backend-api/wham/usage";
 
-    public CodexProvider(CcusageClient ccusage) => _ccusage = ccusage;
+    private readonly HttpClient _http;
+
+    public CodexProvider(HttpClient http) => _http = http;
 
     public string ToolName => "Codex";
 
     public async Task<UsageSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
+        var credentials = CodexCredentials.Read();
         var windows = new List<UsageWindow>();
+        string? plan = null;
 
-        // No 5-hour window for Codex (see class remarks).
-        try
+        if (credentials?.AccessToken is { Length: > 0 } token)
         {
-            if (await GetWeeklyWindowAsync(cancellationToken) is { } weekly)
+            try
             {
-                windows.Add(weekly);
+                (plan, windows) = await FetchUsageAsync(token, credentials.AccountId, cancellationToken);
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Debug.WriteLine($"[Gauge] CodexProvider weekly window failed: {ex.Message}");
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Debug.WriteLine($"[Gauge] CodexProvider usage fetch failed: {ex.Message}");
+            }
         }
 
         return new UsageSnapshot
         {
             ToolName = ToolName,
+            Plan = plan,
             Windows = windows,
             CapturedAt = DateTimeOffset.Now,
         };
     }
 
-    private async Task<UsageWindow?> GetWeeklyWindowAsync(CancellationToken cancellationToken)
+    private async Task<(string? Plan, List<UsageWindow> Windows)> FetchUsageAsync(
+        string token, string? accountId, CancellationToken cancellationToken)
     {
-        var json = await _ccusage.RunAsync("codex daily --json", cancellationToken: cancellationToken);
-        using var document = JsonDocument.Parse(json);
-
-        if (!document.RootElement.TryGetArray("daily", out var days))
+        using var request = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        request.Headers.TryAddWithoutValidation("User-Agent", "Gauge/1.0");
+        if (!string.IsNullOrEmpty(accountId))
         {
-            return null;
+            request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
         }
 
-        // Aggregate daily totals into Monday-anchored weeks.
-        var weekTotals = new Dictionary<DateOnly, long>();
-        foreach (var day in days.EnumerateArray())
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, default, cancellationToken);
+        var root = document.RootElement;
+
+        var plan = MapPlan(root.GetStringOrNull("plan_type"));
+
+        var windows = new List<UsageWindow>();
+        if (root.GetObjectOrNull("rate_limit") is { } rateLimit)
         {
-            if (day.GetDateOnlyOrNull("date") is not { } date)
+            if (ParseWindow(rateLimit, "primary_window", UsageWindowType.FiveHour, "5시간") is { } fiveHour)
             {
-                continue;
+                windows.Add(fiveHour);
             }
-
-            var weekStart = WeekMath.MondayOf(date);
-            weekTotals[weekStart] = weekTotals.GetValueOrDefault(weekStart) + day.GetLongOrDefault("totalTokens");
+            if (ParseWindow(rateLimit, "secondary_window", UsageWindowType.Weekly, "주간") is { } weekly)
+            {
+                windows.Add(weekly);
+            }
         }
 
-        if (weekTotals.Count == 0)
+        return (plan, windows);
+    }
+
+    /// <summary>
+    /// Parses one rate-limit window: <c>{ "used_percent": 0–100, "reset_at": epochSeconds }</c>.
+    /// </summary>
+    private static UsageWindow? ParseWindow(JsonElement rateLimit, string property, UsageWindowType type, string label)
+    {
+        if (rateLimit.GetObjectOrNull(property) is not { } window
+            || window.GetDoubleOrNull("used_percent") is not { } usedPercent)
         {
             return null;
         }
 
-        // Use the week that contains "now" (0 if Codex was unused this week) so the
-        // reset time is in the future, rather than the latest week that has data.
-        var currentWeekStart = WeekMath.CurrentWeekStart();
-        var maxWeekTokens = weekTotals.Values.Max();
-        var used = weekTotals.GetValueOrDefault(currentWeekStart);
+        var resetTime = window.GetInt64OrNull("reset_at") is { } epoch
+            ? DateTimeOffset.FromUnixTimeSeconds(epoch)
+            : (DateTimeOffset?)null;
 
         return new UsageWindow
         {
-            Type = UsageWindowType.Weekly,
-            UsedRatio = maxWeekTokens > 0 ? Math.Clamp((double)used / maxWeekTokens, 0.0, 1.0) : 0.0,
-            Label = "주간",
-            ResetTime = new DateTimeOffset(currentWeekStart.AddDays(7).ToDateTime(TimeOnly.MinValue)),
-            UsedTokens = used,
-            LimitTokens = maxWeekTokens > 0 ? maxWeekTokens : null,
+            Type = type,
+            UsedRatio = Math.Clamp(usedPercent / 100.0, 0.0, 1.0),
+            Label = label,
+            ResetTime = resetTime,
         };
     }
+
+    private static string? MapPlan(string? planType) => planType?.ToLowerInvariant() switch
+    {
+        null or "" => null,
+        "plus" => "Plus",
+        "pro" => "Pro",
+        "free" => "Free",
+        "go" => "Go",
+        "business" => "Business",
+        "team" => "Team",
+        "enterprise" => "Enterprise",
+        var other => char.ToUpperInvariant(other[0]) + other[1..],
+    };
 }

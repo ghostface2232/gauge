@@ -1,188 +1,107 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Text.Json;
 using Gauge.Models;
 using Gauge.Providers.Internal;
-using Gauge.Services;
 
 namespace Gauge.Providers;
 
 /// <summary>
-/// Reads Claude Code usage via ccusage:
-///   - <c>ccusage blocks --json</c> for the active 5-hour window.
-///   - <c>ccusage weekly --json</c> for the weekly window (filtered to Claude models,
-///     since that command aggregates every detected agent).
+/// Reads Claude Code usage from Anthropic's official OAuth usage endpoint
+/// (<c>GET https://api.anthropic.com/api/oauth/usage</c>) using the OAuth token the
+/// CLI stores in <c>~/.claude/.credentials.json</c>. This returns the same real
+/// figures Claude Code's <c>/usage</c> shows — actual 5-hour and weekly utilization
+/// (0–100) and real reset times — unlike token-counting tools such as ccusage.
 ///
-/// ccusage exposes no quota, so ratios are estimates: the active window is normalized
-/// against the largest historical block (mirroring ccusage's own <c>--token-limit max</c>
-/// convention) and the weekly window against the busiest week. Accepted for v1.
-///
-/// Each window is fetched in its own try/catch so one failing call (or missing data)
-/// never suppresses the other window.
+/// The plan label (Max 5x/20x, Pro, …) comes from the credentials file, so it is
+/// reported even when the usage call fails. The usage call degrades gracefully: a
+/// missing credential, expired token, or network error yields an empty window list
+/// (the coordinator then keeps showing the last good snapshot).
 /// </summary>
 public sealed class ClaudeProvider : IUsageProvider
 {
-    private readonly CcusageClient _ccusage;
+    private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage";
 
-    public ClaudeProvider(CcusageClient ccusage) => _ccusage = ccusage;
+    // Required beta header for the OAuth usage endpoint (per Claude Code's own client).
+    private const string OAuthBetaHeader = "oauth-2025-04-20";
+
+    private readonly HttpClient _http;
+
+    public ClaudeProvider(HttpClient http) => _http = http;
 
     public string ToolName => "Claude Code";
 
     public async Task<UsageSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
+        var credentials = ClaudeCredentials.Read();
         var windows = new List<UsageWindow>();
 
-        try
+        if (credentials?.AccessToken is { Length: > 0 } token)
         {
-            if (await GetFiveHourWindowAsync(cancellationToken) is { } fiveHour)
+            try
             {
-                windows.Add(fiveHour);
+                windows = await FetchWindowsAsync(token, cancellationToken);
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Debug.WriteLine($"[Gauge] ClaudeProvider 5-hour window failed: {ex.Message}");
-        }
-
-        try
-        {
-            if (await GetWeeklyWindowAsync(cancellationToken) is { } weekly)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                windows.Add(weekly);
+                Debug.WriteLine($"[Gauge] ClaudeProvider usage fetch failed: {ex.Message}");
             }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Debug.WriteLine($"[Gauge] ClaudeProvider weekly window failed: {ex.Message}");
         }
 
         return new UsageSnapshot
         {
             ToolName = ToolName,
+            Plan = credentials?.Plan,
             Windows = windows,
             CapturedAt = DateTimeOffset.Now,
         };
     }
 
-    private async Task<UsageWindow?> GetFiveHourWindowAsync(CancellationToken cancellationToken)
+    private async Task<List<UsageWindow>> FetchWindowsAsync(string token, CancellationToken cancellationToken)
     {
-        var json = await _ccusage.RunAsync("blocks --json", cancellationToken: cancellationToken);
-        using var document = JsonDocument.Parse(json);
+        using var request = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        request.Headers.TryAddWithoutValidation("anthropic-beta", OAuthBetaHeader);
+        request.Headers.TryAddWithoutValidation("User-Agent", "Gauge/1.0");
 
-        if (!document.RootElement.TryGetArray("blocks", out var blocks))
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, default, cancellationToken);
+        var root = document.RootElement;
+
+        var windows = new List<UsageWindow>();
+        if (ParseWindow(root, "five_hour", UsageWindowType.FiveHour, "5시간") is { } fiveHour)
         {
-            return null;
+            windows.Add(fiveHour);
+        }
+        if (ParseWindow(root, "seven_day", UsageWindowType.Weekly, "주간") is { } weekly)
+        {
+            windows.Add(weekly);
         }
 
-        long maxTokens = 0;
-        JsonElement? active = null;
-        foreach (var block in blocks.EnumerateArray())
-        {
-            if (block.GetBoolOrDefault("isGap"))
-            {
-                continue;
-            }
-
-            maxTokens = Math.Max(maxTokens, block.GetLongOrDefault("totalTokens"));
-            if (block.GetBoolOrDefault("isActive"))
-            {
-                active = block;
-            }
-        }
-
-        // No active block means there is no current 5-hour session to show.
-        if (active is not { } activeBlock)
-        {
-            return null;
-        }
-
-        var used = activeBlock.GetLongOrDefault("totalTokens");
-        return new UsageWindow
-        {
-            Type = UsageWindowType.FiveHour,
-            UsedRatio = Ratio(used, maxTokens),
-            Label = "5시간",
-            ResetTime = activeBlock.GetDateTimeOffsetOrNull("endTime"),
-            UsedTokens = used,
-            LimitTokens = maxTokens > 0 ? maxTokens : null,
-        };
-    }
-
-    private async Task<UsageWindow?> GetWeeklyWindowAsync(CancellationToken cancellationToken)
-    {
-        var json = await _ccusage.RunAsync("weekly --json", cancellationToken: cancellationToken);
-        using var document = JsonDocument.Parse(json);
-
-        if (!document.RootElement.TryGetArray("weekly", out var weeks))
-        {
-            return null;
-        }
-
-        // Anchor to the week that contains "now" so the window represents the
-        // in-progress week (0 if Claude was unused this week), not the latest week
-        // that has data. ccusage periods are Monday-start week dates.
-        var currentWeekStart = WeekMath.CurrentWeekStart();
-        long maxClaudeTokens = 0;
-        long currentClaudeTokens = 0;
-        var hasAnyWeek = false;
-        foreach (var week in weeks.EnumerateArray())
-        {
-            hasAnyWeek = true;
-            var claudeTokens = SumClaudeTokens(week);
-            maxClaudeTokens = Math.Max(maxClaudeTokens, claudeTokens);
-
-            if (week.GetDateOnlyOrNull("period") == currentWeekStart)
-            {
-                currentClaudeTokens = claudeTokens;
-            }
-        }
-
-        if (!hasAnyWeek)
-        {
-            return null;
-        }
-
-        return new UsageWindow
-        {
-            Type = UsageWindowType.Weekly,
-            UsedRatio = Ratio(currentClaudeTokens, maxClaudeTokens),
-            Label = "주간",
-            // Weekly periods are week-start dates; the window resets 7 days later.
-            ResetTime = new DateTimeOffset(currentWeekStart.AddDays(7).ToDateTime(TimeOnly.MinValue)),
-            UsedTokens = currentClaudeTokens,
-            LimitTokens = maxClaudeTokens > 0 ? maxClaudeTokens : null,
-        };
+        return windows;
     }
 
     /// <summary>
-    /// Sums tokens for Claude models only within a weekly entry, since
-    /// <c>ccusage weekly</c> combines all detected agents (Claude, Codex, …).
+    /// Parses one window object: <c>{ "utilization": 0–100, "resets_at": ISO8601 }</c>.
+    /// A null/absent object (or null utilization) means the window has no data and is omitted.
     /// </summary>
-    private static long SumClaudeTokens(JsonElement week)
+    private static UsageWindow? ParseWindow(JsonElement root, string property, UsageWindowType type, string label)
     {
-        if (!week.TryGetArray("modelBreakdowns", out var breakdowns))
+        if (root.GetObjectOrNull(property) is not { } window
+            || window.GetDoubleOrNull("utilization") is not { } utilization)
         {
-            return 0;
+            return null;
         }
 
-        long total = 0;
-        foreach (var model in breakdowns.EnumerateArray())
+        return new UsageWindow
         {
-            var name = model.GetStringOrNull("modelName");
-            if (name is null || !name.StartsWith("claude", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            // modelBreakdowns has no per-model total, so sum the token components.
-            total += model.GetLongOrDefault("inputTokens")
-                   + model.GetLongOrDefault("outputTokens")
-                   + model.GetLongOrDefault("cacheCreationTokens")
-                   + model.GetLongOrDefault("cacheReadTokens");
-        }
-
-        return total;
+            Type = type,
+            UsedRatio = Math.Clamp(utilization / 100.0, 0.0, 1.0),
+            Label = label,
+            ResetTime = window.GetDateTimeOffsetOrNull("resets_at"),
+        };
     }
-
-    private static double Ratio(long used, long limit)
-        => limit > 0 ? Math.Clamp((double)used / limit, 0.0, 1.0) : 0.0;
 }

@@ -16,6 +16,7 @@ public sealed partial class ToolCardViewModel : ObservableObject
     {
         ToolName = cached.ToolName;
         StatusText = string.Empty;
+        Plan = string.Empty;
         Update(cached);
     }
 
@@ -24,6 +25,14 @@ public sealed partial class ToolCardViewModel : ObservableObject
 
     /// <summary>One row per window the tool exposes, in provider order.</summary>
     public ObservableCollection<UsageWindowRowViewModel> Windows { get; } = new();
+
+    /// <summary>Plan/subscription label shown beside the tool name (e.g. "Max 5x").</summary>
+    [ObservableProperty]
+    public partial string Plan { get; set; }
+
+    /// <summary>True when a plan label is available (controls its visibility).</summary>
+    [ObservableProperty]
+    public partial bool HasPlan { get; set; }
 
     [ObservableProperty]
     public partial bool HasAnyData { get; set; }
@@ -34,6 +43,12 @@ public sealed partial class ToolCardViewModel : ObservableObject
 
     public void Update(CachedUsage cached)
     {
+        // Plan comes from the snapshot (retained across failed refreshes), so it stays
+        // visible even when the current window data is unavailable.
+        var plan = cached.Snapshot?.Plan;
+        Plan = plan ?? string.Empty;
+        HasPlan = !string.IsNullOrEmpty(plan);
+
         var windows = cached.Snapshot?.Windows ?? (IReadOnlyList<UsageWindow>)Array.Empty<UsageWindow>();
 
         if (windows.Count == 0)

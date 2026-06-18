@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace Gauge.Providers.Internal;
 
 /// <summary>
-/// Defensive accessors over <see cref="JsonElement"/>. ccusage's schema can vary
-/// across versions, so every lookup tolerates missing or mistyped fields and
-/// returns a default instead of throwing.
+/// Defensive accessors over <see cref="JsonElement"/>. A provider API's schema can
+/// vary, so every lookup tolerates missing or mistyped fields and returns a default
+/// instead of throwing.
 /// </summary>
 internal static class JsonElementExtensions
 {
@@ -18,11 +18,28 @@ internal static class JsonElementExtensions
             ? result
             : 0L;
 
-    public static bool GetBoolOrDefault(this JsonElement element, string property)
+    public static long? GetInt64OrNull(this JsonElement element, string property)
         => element.ValueKind == JsonValueKind.Object
            && element.TryGetProperty(property, out var value)
-           && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
-           && value.GetBoolean();
+           && value.ValueKind == JsonValueKind.Number
+           && value.TryGetInt64(out var result)
+            ? result
+            : null;
+
+    public static double? GetDoubleOrNull(this JsonElement element, string property)
+        => element.ValueKind == JsonValueKind.Object
+           && element.TryGetProperty(property, out var value)
+           && value.ValueKind == JsonValueKind.Number
+           && value.TryGetDouble(out var result)
+            ? result
+            : null;
+
+    public static JsonElement? GetObjectOrNull(this JsonElement element, string property)
+        => element.ValueKind == JsonValueKind.Object
+           && element.TryGetProperty(property, out var value)
+           && value.ValueKind == JsonValueKind.Object
+            ? value
+            : null;
 
     public static string? GetStringOrNull(this JsonElement element, string property)
         => element.ValueKind == JsonValueKind.Object

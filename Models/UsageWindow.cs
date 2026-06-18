@@ -3,9 +3,10 @@ namespace Gauge.Models;
 /// <summary>
 /// One usage window for a tool (e.g. its 5-hour session or weekly quota).
 ///
-/// <see cref="UsedRatio"/> is normalized 0–1. Because ccusage does not report a
-/// tool's actual quota, providers estimate the ratio (see provider comments); this
-/// is accepted for v1 and may be replaced by official figures (OAuth) in v1.5.
+/// <see cref="UsedRatio"/> is the real utilization (0–1) reported by the provider's
+/// official usage API — Anthropic's OAuth usage endpoint for Claude Code and the
+/// ChatGPT backend usage endpoint for Codex — not an estimate. <see cref="ResetTime"/>
+/// is the provider's actual rate-limit reset, not a calendar boundary.
 /// </summary>
 public sealed record UsageWindow
 {

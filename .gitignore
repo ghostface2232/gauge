@@ -17,3 +17,6 @@ packages/
 ## OS
 Thumbs.db
 desktop.ini
+
+## Reference projects (not part of Gauge)
+Ref/

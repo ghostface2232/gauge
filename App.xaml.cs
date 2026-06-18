@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Gauge.Models;
 using Gauge.Providers;
 using Gauge.Services;
@@ -22,6 +23,7 @@ public partial class App : Application
     private UsageCoordinator? _coordinator;
     private UsageViewModel? _viewModel;
     private StartupService? _startupService;
+    private HttpClient? _httpClient;
 
     public App()
     {
@@ -47,11 +49,13 @@ public partial class App : Application
 
         // Data pipeline: providers → UsageService (parallel + isolated) → coordinator
         // (60s timer + cache + debounced forced refresh) → view model → UI/tray.
-        var ccusage = new CcusageClient(new ProcessRunner());
+        // Providers read each tool's real usage from its official OAuth usage API,
+        // using the token the CLI already stores locally (read-only).
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         var usageService = new UsageService(new IUsageProvider[]
         {
-            new ClaudeProvider(ccusage),
-            new CodexProvider(ccusage),
+            new ClaudeProvider(_httpClient),
+            new CodexProvider(_httpClient),
         });
 
         _viewModel = new UsageViewModel();
@@ -76,6 +80,8 @@ public partial class App : Application
         if (_viewModel is not null)
         {
             _trayIcon?.UpdateToolTip(_viewModel.TrayTooltipSummary, _viewModel.LastUpdatedAt ?? DateTimeOffset.Now);
+            // Recolor the tray icon by the highest usage ratio (≥70% caution, ≥90% danger).
+            _trayIcon?.UpdateUsageLevel(_viewModel.HighestUsageRatio);
         }
     }
 
@@ -120,6 +126,8 @@ public partial class App : Application
         _coordinator = null;
         _trayIcon?.Dispose();
         _trayIcon = null;
+        _httpClient?.Dispose();
+        _httpClient = null;
         Exit();
     }
 }

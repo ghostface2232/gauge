@@ -11,6 +11,13 @@ public sealed record UsageSnapshot
     public required string ToolName { get; init; }
 
     /// <summary>
+    /// Subscription/plan label to show beside the tool name (e.g. "Max 5x", "Plus").
+    /// Null when unknown. Comes from the provider's credentials/usage response, so it
+    /// can be present even when no window data was obtained.
+    /// </summary>
+    public string? Plan { get; init; }
+
+    /// <summary>
     /// The windows this tool exposes. A tool may have a 5-hour window, a weekly
     /// window, both, or neither — the list reflects only what was actually obtained.
     /// </summary>
