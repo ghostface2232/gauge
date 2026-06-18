@@ -9,11 +9,12 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- H.NotifyIcon's SecondWindow mode clones the supplied MenuFlyout but does
-                 not copy MenuFlyoutPresenterStyle. Keep this implicit so it reaches the
-                 presenter created for the actual clone. The host size is corrected in
-                 TrayIconService; disabling scroll is a final guard for this fixed menu. -->
-            <Style TargetType="MenuFlyoutPresenter"
+            <!-- Tray context menu (SecondWindow host) sizes its window from content and,
+                 at fractional DPI, lands a couple physical pixels short of the presenter.
+                 That makes the presenter's internal ScrollViewer show a scrollbar and
+                 allow a few px of scroll. Disable scrolling outright — the menu is short
+                 and fixed, so there is nothing to scroll — while keeping the native look. -->
+            <Style x:Key="GaugeMenuFlyoutPresenterStyle" TargetType="MenuFlyoutPresenter"
                    BasedOn="{StaticResource DefaultMenuFlyoutPresenterStyle}">
                 <Setter Property="ScrollViewer.VerticalScrollMode" Value="Disabled" />
                 <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
