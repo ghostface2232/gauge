@@ -30,7 +30,6 @@ public partial class App : Application
 
         _trayIcon = new TrayIconService();
         _trayIcon.LeftClicked += OnTrayLeftClicked;
-        _trayIcon.RefreshRequested += OnTrayRefreshRequested;
         _trayIcon.StartOnBootToggled += OnTrayStartOnBootToggled;
         _trayIcon.ExitRequested += OnTrayExitRequested;
     }
@@ -39,12 +38,6 @@ public partial class App : Application
     {
         // TODO(next step): toggle the popover window here.
         Debug.WriteLine("[Gauge] Tray left-click → toggle popover (not wired yet)");
-    }
-
-    private void OnTrayRefreshRequested(object? sender, EventArgs e)
-    {
-        // TODO(later): trigger a forced provider refresh.
-        Debug.WriteLine("[Gauge] Tray menu → refresh (not wired yet)");
     }
 
     private void OnTrayStartOnBootToggled(object? sender, bool enabled)
