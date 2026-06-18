@@ -58,6 +58,11 @@ public sealed class TrayIconService : IDisposable
 
     private const int MenuBottomMargin = 16;
     private const int MenuSideMargin = 8;
+    // H.NotifyIcon 2.4.1 measures its SecondWindow flyout before the first XamlRoot
+    // exists. It therefore uses scale 1.0 for the first host-window size even on a
+    // fractional-DPI monitor. The library's measurement adds this many physical
+    // border pixels after scaling the XAML content.
+    private const int SecondWindowBorderPixels = 4;
 
     private readonly TaskbarIcon _trayIcon;
     private readonly MenuFlyoutItem _startOnBootItem;
@@ -75,6 +80,8 @@ public sealed class TrayIconService : IDisposable
     private bool _startOnBoot;
     // Saved so we can restore the user's foreground-lock setting on exit.
     private uint? _previousForegroundLockTimeout;
+    private int? _contextMenuContentWidthDip;
+    private int? _contextMenuContentHeightDip;
     private bool _disposed;
 
     /// <summary>Raised on left-click. Next step wires this to the popover toggle.</summary>
@@ -213,7 +220,7 @@ public sealed class TrayIconService : IDisposable
         _dispatcher?.TryEnqueue(DispatcherQueuePriority.Low, RepositionContextMenuAboveTray);
     }
 
-    private static void RepositionContextMenuAboveTray()
+    private void RepositionContextMenuAboveTray()
     {
         var hwnd = NativeMethods.GetForegroundWindow();
         if (hwnd == IntPtr.Zero) return;
@@ -231,6 +238,20 @@ public sealed class TrayIconService : IDisposable
         var work = info.rcWork;
         var width = rect.right - rect.left;
         var height = rect.bottom - rect.top;
+
+        // H.NotifyIcon 2.4.1's first measurement is always unscaled because the new
+        // flyout has no XamlRoot yet. Cache that DIP content size, then derive every
+        // physical size from the host's current DPI. Reapplying this also handles
+        // opening the menu on a monitor with a different DPI from the previous one.
+        _contextMenuContentWidthDip ??= width - SecondWindowBorderPixels;
+        _contextMenuContentHeightDip ??= height - SecondWindowBorderPixels;
+        var scale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+        if (scale > 0)
+        {
+            width = ScaleSecondWindowDimension(_contextMenuContentWidthDip.Value, scale);
+            height = ScaleSecondWindowDimension(_contextMenuContentHeightDip.Value, scale);
+        }
+
         var top = work.bottom - MenuBottomMargin - height;
         var left = cursor.X - (width / 2);
         if (left + width > work.right - MenuSideMargin)
@@ -239,9 +260,12 @@ public sealed class TrayIconService : IDisposable
             left = work.left + MenuSideMargin;
 
         _ = NativeMethods.SetWindowPos(
-            hwnd, IntPtr.Zero, left, top, 0, 0,
-            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+            hwnd, IntPtr.Zero, left, top, width, height,
+            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
     }
+
+    private static int ScaleSecondWindowDimension(int contentSizeDip, double scale) =>
+        (int)Math.Round((contentSizeDip * scale) + SecondWindowBorderPixels);
 
     private void LoadInitialIcon()
     {
@@ -320,14 +344,6 @@ public sealed class TrayIconService : IDisposable
         exit.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
         var menu = new MenuFlyout();
-        // Disable the presenter's internal scrolling so the SecondWindow host never
-        // shows a scrollbar / allows a few-px scroll when its window lands a couple
-        // physical pixels short of the content at fractional DPI.
-        if (Application.Current.Resources.TryGetValue("GaugeMenuFlyoutPresenterStyle", out var presenterStyle)
-            && presenterStyle is Style style)
-        {
-            menu.MenuFlyoutPresenterStyle = style;
-        }
         menu.Items.Add(_startOnBootItem);
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(exit);
@@ -378,7 +394,6 @@ public sealed class TrayIconService : IDisposable
         public const uint SPIF_SENDCHANGE = 0x02;
 
         public const uint MONITOR_DEFAULTTONEAREST = 0x2;
-        public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
 
@@ -422,6 +437,9 @@ public sealed class TrayIconService : IDisposable
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool SetWindowPos(
             IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForWindow(IntPtr hWnd);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT

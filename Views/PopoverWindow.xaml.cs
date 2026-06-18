@@ -482,6 +482,10 @@ public sealed partial class PopoverWindow : Window
             incomingTransform.X = 0;
             _isViewTransitioning = false;
         };
+        // The completion handler deliberately ignores stale storyboards. Register this
+        // one as the active transition before starting it; otherwise the identity check
+        // always fails and _isViewTransitioning remains true forever, disabling Back.
+        _viewTransitionStoryboard = storyboard;
         storyboard.Begin();
     }
 
