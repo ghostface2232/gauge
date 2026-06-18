@@ -43,8 +43,8 @@ public sealed partial class AuthenticationCardViewModel : ObservableObject
         IsLoginRunning = state.IsLoginRunning;
         LoginButtonText = state.Status switch
         {
-            AuthenticationStatus.LoginRunning => "로그인 진행 중…",
-            AuthenticationStatus.Available or AuthenticationStatus.Invalid => "다시 로그인 / 계정 전환",
+            AuthenticationStatus.LoginRunning => "로그인 중…",
+            AuthenticationStatus.Available or AuthenticationStatus.Invalid => "계정 전환",
             _ => "로그인",
         };
         LoginCommand.NotifyCanExecuteChanged();

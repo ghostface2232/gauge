@@ -21,6 +21,14 @@ Gauge is a Windows system-tray app that monitors Claude Code and Codex usage. Cl
 - Keep the wizard minimal: modern style, no welcome, directory, program-group, or ready page. Retain only progress and the finished page with the optional launch checkbox.
 - Do not add desktop shortcuts or an install-time start-on-boot choice. Gauge owns that preference through its tray menu. The uninstaller must delete Gauge's HKCU Run value if present.
 - `Gauge.csproj` is the source of the installer version. Keep its `<Version>` updated for releases.
+- The installer's `[Run]` section has two entries: the interactive finished-page launch checkbox (`postinstall skipifsilent`) and a `Check: WizardSilent` relaunch for silent updates. The in-app updater runs Setup with `/SILENT`, which has no finished page, so the WizardSilent entry is what restarts Gauge after an update.
+
+## Releases and in-app updates
+
+- Releases are published to GitHub Releases, tagged `v<Version>` (matching `Gauge.csproj`), with `GaugeSetup-win-x64.exe` as the asset. Use `release.ps1` (local, via `gh`) or push a `v*` tag to trigger `.github/workflows/release.yml`.
+- `UpdateService` checks `releases/latest` against the running assembly version, downloads the installer asset, and launches it with `/SILENT`; the app then exits (`UpdateViewModel.ExitRequested` → `App.ShutdownAndExit`) so the installer can replace files and relaunch.
+- Update checks are automatic-on-launch (quiet) plus on-demand from the settings card. Applying an update is always a deliberate click — never auto-installed.
+- The asset name `GaugeSetup-win-x64.exe` is contract: it is hard-coded in `UpdateService` and produced by `installer/Gauge.iss` (`OutputBaseFilename`). Keep them in sync.
 
 ## Core architecture rule
 

@@ -24,6 +24,7 @@ public partial class App : Application
     private SettingsViewModel? _settingsViewModel;
     private IReadOnlyDictionary<ToolKind, IAuthenticationProvider>? _authentication;
     private StartupService? _startupService;
+    private UpdateService? _updateService;
     private HttpClient? _httpClient;
 
     public App()
@@ -70,10 +71,15 @@ public partial class App : Application
             new CodexProvider(_httpClient, credentials),
         });
 
-        _settingsViewModel = new SettingsViewModel(authentication);
+        _updateService = new UpdateService();
+        _settingsViewModel = new SettingsViewModel(authentication, _updateService);
         _settingsViewModel.AuthenticationSucceeded += OnAuthenticationSucceeded;
+        _settingsViewModel.Update.ExitRequested += OnUpdateExitRequested;
         _popover.BindSettingsViewModel(_settingsViewModel);
         _ = _settingsViewModel.RefreshAsync();
+        // Quietly check GitHub Releases on launch so the settings card can surface
+        // an available update; applying it stays a deliberate one-click action.
+        _ = _settingsViewModel.Update.CheckInBackgroundAsync();
 
         _viewModel = new UsageViewModel();
         _viewModel.RefreshRequested += OnManualRefreshRequested;
@@ -157,7 +163,13 @@ public partial class App : Application
         _trayIcon?.SetStartOnBootChecked(actual);
     }
 
-    private void OnTrayExitRequested(object? sender, EventArgs e)
+    private void OnTrayExitRequested(object? sender, EventArgs e) => ShutdownAndExit();
+
+    // The installer has launched; exit so it can replace the locked files and
+    // relaunch Gauge.
+    private void OnUpdateExitRequested(object? sender, EventArgs e) => ShutdownAndExit();
+
+    private void ShutdownAndExit()
     {
         // Stop the timer and cancel any in-flight usage calls first, then
         // remove the tray icon (which also restores the foreground-lock setting and

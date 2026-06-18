@@ -26,6 +26,23 @@
                 <Setter Property="MinHeight" Value="32" />
                 <Setter Property="CornerRadius" Value="4" />
             </Style>
+
+            <!-- Compact account card; rendered two-up (Claude Code / Codex) so the
+                 settings view stays short enough for the update card below. -->
+            <DataTemplate x:Key="AuthCardTemplate">
+                <Border Padding="12" CornerRadius="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding ToolName}" TextWrapping="Wrap"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75"
+                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                        <Button Content="{Binding LoginButtonText}" Command="{Binding LoginCommand}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Bottom" />
+                    </StackPanel>
+                </Border>
+            </DataTemplate>
         </Grid.Resources>
         <Grid.RenderTransform>
             <TranslateTransform x:Name="SlideTransform" />
@@ -216,23 +233,49 @@
                                Style="{StaticResource SubtitleTextBlockStyle}" />
                 </Grid>
 
-                <ItemsControl ItemsSource="{Binding Authentication}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,8" Padding="14" CornerRadius="8"
-                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                <StackPanel Spacing="10">
-                                    <TextBlock Text="{Binding ToolName}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75"
-                                               Style="{StaticResource CaptionTextBlockStyle}" />
-                                    <Button HorizontalAlignment="Left" Content="{Binding LoginButtonText}"
-                                            Command="{Binding LoginCommand}" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- Two accounts side by side, equal width and height. -->
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ContentControl Grid.Column="0" Content="{Binding Authentication[0]}"
+                                    ContentTemplate="{StaticResource AuthCardTemplate}"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                    <ContentControl Grid.Column="1" Content="{Binding Authentication[1]}"
+                                    ContentTemplate="{StaticResource AuthCardTemplate}"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                </Grid>
+
+                <!-- Update card: label and buttons share one row; buttons right-aligned. -->
+                <Border Padding="14" CornerRadius="8" DataContext="{Binding Update}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="업데이트" VerticalAlignment="Center"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        HorizontalAlignment="Right">
+                                <Button Content="업데이트 확인" Command="{Binding CheckCommand}" />
+                                <Button Content="지금 업데이트" Style="{StaticResource AccentButtonStyle}"
+                                        Command="{Binding UpdateCommand}"
+                                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding CurrentVersionText}" Opacity="0.75"
+                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Visibility="{Binding HasStatus, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 

@@ -97,6 +97,38 @@ dist\GaugeSetup-win-x64.exe
 
 현재 프로젝트 파일에는 x64와 ARM64 runtime identifier가 정의되어 있지만, `build-installer.ps1` 패키징 경로는 x64 전용입니다.
 
+## 릴리스 배포
+
+배포 버전은 `Gauge.csproj`의 `<Version>`에서 옵니다. 이 값으로 `v<버전>` 태그(예: `0.1.0` → `v0.1.0`)를 만들어 GitHub Release에 설치 프로그램을 올립니다. 앱 내 업데이트 기능도 같은 버전을 읽어 비교합니다.
+
+릴리스할 때:
+
+1. `Gauge.csproj`의 `<Version>`을 올리고 커밋·푸시합니다.
+2. 다음 중 하나로 GitHub Release를 만듭니다.
+
+**로컬에서 (GitHub CLI 사용):**
+
+```powershell
+.\release.ps1
+```
+
+`release.ps1`은 설치 프로그램을 빌드한 뒤 `gh`로 `v<버전>` 릴리스를 생성하고 `GaugeSetup-win-x64.exe`를 자산으로 업로드합니다. (`gh auth login` 필요. 같은 태그가 이미 있으면 자산만 교체합니다. `-Draft`, `-Notes "..."` 지원.)
+
+**자동으로 (GitHub Actions):**
+
+`v*` 태그를 푸시하면 `.github/workflows/release.yml`이 설치 프로그램을 빌드해 릴리스를 발행합니다.
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+## 업데이트
+
+Gauge는 시작 시 GitHub의 최신 Release를 조용히 확인하고, 새 버전이 있으면 설정 화면의 **업데이트** 카드에 표시합니다. 카드의 **업데이트 확인** 버튼으로 수동 확인도 가능합니다.
+
+새 버전이 있을 때 **지금 업데이트**를 누르면 설치 프로그램을 내려받아 자동(무인) 모드로 실행합니다. 실행 중인 Gauge가 종료되고, 같은 위치에 새 버전이 설치된 뒤 자동으로 다시 시작됩니다. 관리자 권한은 필요하지 않습니다.
+
 ## 구조
 
 Gauge의 가장 중요한 규칙은 데이터 수집과 UI의 분리입니다.
