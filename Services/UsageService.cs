@@ -25,13 +25,24 @@ public sealed record ProviderSnapshotResult
 public sealed class UsageService
 {
     private readonly IReadOnlyList<IUsageProvider> _providers;
+    private readonly Func<ToolKind, bool> _isEnabled;
 
-    public UsageService(IEnumerable<IUsageProvider> providers)
-        => _providers = providers.ToList();
+    /// <param name="isEnabled">
+    /// Only providers whose tool is enabled are queried. Defaults to "all enabled" so
+    /// existing callers/tests are unaffected. The registry supplies this at runtime so
+    /// disabled tools are neither fetched nor surfaced.
+    /// </param>
+    public UsageService(IEnumerable<IUsageProvider> providers, Func<ToolKind, bool>? isEnabled = null)
+    {
+        _providers = providers.ToList();
+        _isEnabled = isEnabled ?? (_ => true);
+    }
 
     public async Task<IReadOnlyList<ProviderSnapshotResult>> GetAllSnapshotsAsync(CancellationToken cancellationToken)
     {
-        var tasks = _providers.Select(provider => GetIsolatedAsync(provider, cancellationToken));
+        var tasks = _providers
+            .Where(provider => _isEnabled(provider.Tool))
+            .Select(provider => GetIsolatedAsync(provider, cancellationToken));
         return await Task.WhenAll(tasks);
     }
 

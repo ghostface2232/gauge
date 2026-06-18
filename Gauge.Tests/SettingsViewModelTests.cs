@@ -8,8 +8,8 @@ public sealed class SettingsViewModelTests
 {
     [Theory]
     [InlineData(AuthenticationStatus.Missing, "로그인", "더 정확한 사용량")]
-    [InlineData(AuthenticationStatus.Available, "다시 로그인 / 계정 전환", "로그인됨")]
-    [InlineData(AuthenticationStatus.LoginRunning, "로그인 진행 중…", "완료")]
+    [InlineData(AuthenticationStatus.Available, "계정 전환", "로그인됨")]
+    [InlineData(AuthenticationStatus.LoginRunning, "로그인 중…", "완료")]
     public void CardReflectsAuthenticationState(AuthenticationStatus status, string button, string messagePart)
     {
         var provider = new FakeAuthenticationProvider(State(status, messagePart));

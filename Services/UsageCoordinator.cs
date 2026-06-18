@@ -9,6 +9,9 @@ public enum RefreshReason
     PopoverOpened,
     Manual,
     AuthenticationChanged,
+    // The set of enabled tools changed (user added/removed a service). Refresh
+    // immediately (not debounced) so cards appear/disappear right away.
+    ToolsChanged,
 }
 
 /// <summary>
@@ -82,7 +85,9 @@ public sealed class UsageCoordinator : IDisposable
 
         try
         {
-            await RefreshCoreAsync(_cts.Token, waitForExisting: reason == RefreshReason.AuthenticationChanged);
+            await RefreshCoreAsync(
+                _cts.Token,
+                waitForExisting: reason is RefreshReason.AuthenticationChanged or RefreshReason.ToolsChanged);
         }
         catch (OperationCanceledException)
         {
@@ -155,6 +160,18 @@ public sealed class UsageCoordinator : IDisposable
     {
         lock (_cacheLock)
         {
+            // Drop tools no longer reported. UsageService returns exactly one result per
+            // ENABLED provider (success or failure), so a tool missing from the results
+            // was disabled (removed from the registry) — purge its cached card and order
+            // entry so it disappears from the UI. (Failed-but-enabled tools still appear
+            // here as error results and are kept below.)
+            var present = new HashSet<string>(results.Select(r => r.ToolName));
+            _toolOrder.RemoveAll(name => !present.Contains(name));
+            foreach (var stale in _cache.Keys.Where(name => !present.Contains(name)).ToList())
+            {
+                _cache.Remove(stale);
+            }
+
             foreach (var result in results)
             {
                 if (!_toolOrder.Contains(result.ToolName))

@@ -9,6 +9,9 @@ namespace Gauge.Providers;
 /// </summary>
 public interface IUsageProvider
 {
+    /// <summary>The tool this provider reports on (used to filter by the registry).</summary>
+    ToolKind Tool { get; }
+
     /// <summary>Display name of the tool this provider reports on.</summary>
     string ToolName { get; }
 

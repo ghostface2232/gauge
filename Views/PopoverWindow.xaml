@@ -28,19 +28,33 @@
                 <Setter Property="CornerRadius" Value="4" />
             </Style>
 
-            <!-- Compact account card; rendered two-up (Claude Code / Codex) so the
-                 settings view stays short enough for the update card below. -->
+            <!-- Compact account card. Header carries the tool name and a disconnect
+                 (remove) button; the body shows the CLI login button for Claude/Codex
+                 or sign-in guidance for app-login tools (Antigravity/Cursor). -->
             <DataTemplate x:Key="AuthCardTemplate">
                 <Border Padding="12" CornerRadius="8"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="{Binding ToolName}" TextWrapping="Wrap"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Grid ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding ToolName}" TextWrapping="Wrap"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Button Grid.Column="1" Style="{StaticResource BorderlessIconButtonStyle}"
+                                    MinWidth="28" MinHeight="28" Padding="6"
+                                    Command="{Binding RemoveCommand}" ToolTipService.ToolTip="연결 해제">
+                                <FontIcon Glyph="&#xE711;" FontSize="12" />
+                            </Button>
+                        </Grid>
                         <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75"
                                    Style="{StaticResource CaptionTextBlockStyle}" />
                         <Button Content="{Binding LoginButtonText}" Command="{Binding LoginCommand}"
-                                HorizontalAlignment="Stretch" VerticalAlignment="Bottom" />
+                                HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                                Visibility="{Binding SupportsCliLogin, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </Border>
             </DataTemplate>
@@ -52,21 +66,26 @@
             <KeyboardAccelerator Key="Escape" Invoked="OnEscapeInvoked" />
         </Grid.KeyboardAccelerators>
 
-        <!-- Generous Quick-Settings-like padding/spacing; exact values are easy to tune. -->
-        <!-- Top-aligned so the border sizes to its content; the window height is then
-             matched to it in code (no bottom filler). -->
-        <Border x:Name="RootBorder" Padding="16" VerticalAlignment="Top">
+        <!-- Usage view. RootBorder spans the window edges; padding is applied per
+             region so the footer can be a full-bleed bottom bar (Win11 Start-menu
+             style). DWM rounds the window's outer corners. -->
+        <Border x:Name="RootBorder" VerticalAlignment="Top">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="UsageViewTransform" />
             </Border.RenderTransform>
-            <Grid RowSpacing="14">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Body: cards when there is data, otherwise a guidance message. -->
-                <Grid Grid.Row="0">
+                <!-- Body: cards when there is data, otherwise a guidance message.
+                     Padded region; BodyScroll caps its height in code so the window
+                     never exceeds MaxPopoverHeightDip — taller content scrolls here.
+                     No bottom padding so scrolling content clips flush at the footer
+                     divider instead of vanishing into an empty band above it. -->
+                <Border Grid.Row="0" Padding="16,16,16,0">
+                <Grid>
                 <!-- Centered guidance shown when no tool has any data. -->
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -82,7 +101,10 @@
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollMode="Disabled"
                     Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                    <ItemsControl ItemsSource="{Binding Cards}">
+                    <!-- Bottom margin scrolls with the content, giving the last card the
+                         same 16dip breathing room as the top (8 here + each card's 8dip
+                         margin) without leaving a fixed band above the footer. -->
+                    <ItemsControl ItemsSource="{Binding Cards}" Margin="0,0,0,8">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border
@@ -182,54 +204,65 @@
                     </ItemsControl>
                 </ScrollViewer>
                 </Grid>
+                </Border>
 
-                <!-- Footer: last-updated, manual refresh, settings gear placeholder. -->
-                <Grid Grid.Row="1" ColumnSpacing="6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Padding="4,0,0,0"
-                        Opacity="0.7"
-                        Text="{Binding LastUpdatedText}"
-                        Style="{StaticResource CaptionTextBlockStyle}" />
-                    <Button
-                        Grid.Column="1"
-                        Style="{StaticResource BorderlessIconButtonStyle}"
-                        Command="{Binding RefreshCommand}"
-                        ToolTipService.ToolTip="새로고침">
-                        <FontIcon Glyph="&#xE72C;" FontSize="14" />
-                    </Button>
-                    <!-- Settings placeholder; wired in a later step. -->
-                    <Button
-                        Grid.Column="2"
-                        Style="{StaticResource BorderlessIconButtonStyle}"
-                        Click="OnSettingsClicked"
-                        ToolTipService.ToolTip="설정">
-                        <FontIcon Glyph="&#xE713;" FontSize="14" />
-                    </Button>
-                </Grid>
+                <!-- Footer bar: full-bleed strip with a top divider, mildly more opaque
+                     than the acrylic body — like the Windows 11 Start menu bottom bar.
+                     MinHeight + padding kept identical to the settings bar for a
+                     consistent footer across both views. -->
+                <Border Grid.Row="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        Height="48"
+                        Padding="16,8">
+                    <Grid ColumnSpacing="6" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Opacity="0.7"
+                            Text="{Binding LastUpdatedText}"
+                            Style="{StaticResource CaptionTextBlockStyle}" />
+                        <Button
+                            Grid.Column="1"
+                            Style="{StaticResource BorderlessIconButtonStyle}"
+                            Command="{Binding RefreshCommand}"
+                            ToolTipService.ToolTip="새로고침">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                        </Button>
+                        <Button
+                            Grid.Column="2"
+                            Style="{StaticResource BorderlessIconButtonStyle}"
+                            Click="OnSettingsClicked"
+                            ToolTipService.ToolTip="설정">
+                            <FontIcon Glyph="&#xE713;" FontSize="14" />
+                        </Button>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
 
         <!-- Settings is a second view inside the same acrylic popover. Stretches so
              the update row can sit at the bottom (the window keeps the usage view's
              height while settings is shown). -->
-        <Border x:Name="SettingsBorder" Padding="16" VerticalAlignment="Stretch" Visibility="Collapsed">
+        <Border x:Name="SettingsBorder" VerticalAlignment="Stretch" Visibility="Collapsed">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="SettingsViewTransform" />
             </Border.RenderTransform>
-            <Grid RowSpacing="14">
+            <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Spacing="14" VerticalAlignment="Top">
+                <!-- Header stays fixed; only the service list scrolls. -->
+                <Border Grid.Row="0" Padding="16,16,16,8">
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -242,7 +275,14 @@
                         <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="설정"
                                    Style="{StaticResource SubtitleTextBlockStyle}" />
                     </Grid>
+                </Border>
 
+                <!-- Scrollable service list. No bottom padding so it clips flush at the
+                     update bar, mirroring the usage view. Grows to a scroll as more
+                     services are registered. -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollMode="Disabled" Padding="16,0,16,0">
+                <StackPanel Spacing="14" VerticalAlignment="Top">
                     <!-- One card per tool, side by side at equal width and height.
                          Data-bound (not indexed) so adding a tool needs no XAML change. -->
                     <ItemsRepeater ItemsSource="{Binding Authentication}"
@@ -253,24 +293,45 @@
                             <UniformGridLayout MinItemWidth="120" MinColumnSpacing="8" MinRowSpacing="8" ItemsStretch="Fill" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
-                </StackPanel>
 
-                <!-- Bottom-aligned update row: version on the left, action button on the
-                     right (no card), mirroring the usage view's footer. The button checks
-                     for updates and, once one is found, switches to applying it. -->
-                <Grid Grid.Row="1" ColumnSpacing="6" VerticalAlignment="Bottom"
-                      DataContext="{Binding Update}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Padding="4,0,0,0" Opacity="0.7"
-                               Text="{Binding VersionText}"
-                               Style="{StaticResource CaptionTextBlockStyle}" />
-                    <Button Grid.Column="1" Content="{Binding ActionButtonText}"
-                            Command="{Binding ActionCommand}"
-                            ToolTipService.ToolTip="{Binding StatusText, Converter={StaticResource EmptyToNull}}" />
-                </Grid>
+                    <!-- Entry point to connect another service. A flyout (built in code
+                         from the registry's available tools) picks which one to add. -->
+                    <Button x:Name="AddServiceButton" Click="OnAddServiceClicked"
+                            HorizontalAlignment="Stretch" Padding="12,10" CornerRadius="8"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                            <TextBlock Text="서비스 추가" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                </ScrollViewer>
+
+                <!-- Bottom bar: version on the left, update action on the right. Same
+                     full-bleed divider treatment, MinHeight and padding as the usage
+                     view's footer so both views share an identical bottom bar. -->
+                <Border Grid.Row="2"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        Height="48"
+                        Padding="16,8"
+                        DataContext="{Binding Update}">
+                    <Grid ColumnSpacing="6" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Opacity="0.7"
+                                   Text="{Binding VersionText}"
+                                   Style="{StaticResource CaptionTextBlockStyle}" />
+                        <Button Grid.Column="1" Content="{Binding ActionButtonText}"
+                                Command="{Binding ActionCommand}"
+                                Height="32" Padding="12,0" VerticalAlignment="Center"
+                                ToolTipService.ToolTip="{Binding StatusText, Converter={StaticResource EmptyToNull}}" />
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
 

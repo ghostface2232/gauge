@@ -9,4 +9,8 @@ public enum UsageWindowType
 {
     FiveHour,
     Weekly,
+    // Per-model quota windows (e.g. Antigravity's separate Claude / GPT model limits).
+    ModelQuota,
+    // Credit/spend style usage measured over a billing cycle (e.g. Cursor).
+    BillingCycle,
 }

@@ -37,6 +37,7 @@ public sealed class UsageCoordinatorTests
 
     private sealed class StubProvider(string name) : IUsageProvider
     {
+        public ToolKind Tool => name == "Codex" ? ToolKind.Codex : ToolKind.ClaudeCode;
         public string ToolName => name;
         public int CallCount { get; private set; }
         public bool Throw { get; set; }

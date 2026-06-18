@@ -1,5 +1,18 @@
 namespace Gauge.Models;
 
+/// <summary>How a tool's "login" action is performed from its settings card.</summary>
+public enum LoginKind
+{
+    /// <summary>Run the tool's official CLI login command (e.g. <c>claude /login</c>).</summary>
+    CliCommand,
+
+    /// <summary>
+    /// The tool has no headless CLI login; the user signs in via its app/IDE. The card
+    /// shows guidance and Gauge simply detects the credential once it appears.
+    /// </summary>
+    GuidanceOnly,
+}
+
 /// <summary>
 /// Per-tool data that is the same wherever the tool is referenced: how its card is
 /// labelled and how its official CLI is invoked for login. Keeping it here means a new
@@ -19,6 +32,15 @@ public sealed record ToolDescriptor
 
     /// <summary>Arguments passed to <see cref="LoginCommand"/>, e.g. "/login", "login".</summary>
     public required string LoginArguments { get; init; }
+
+    /// <summary>How the settings card's login action behaves. Defaults to running the CLI.</summary>
+    public LoginKind LoginKind { get; init; } = LoginKind.CliCommand;
+
+    /// <summary>
+    /// Short instruction shown on the card when <see cref="LoginKind"/> is
+    /// <see cref="LoginKind.GuidanceOnly"/> (the tool is signed in elsewhere). Null otherwise.
+    /// </summary>
+    public string? LoginGuidance { get; init; }
 }
 
 /// <summary>The single source of truth for every tool Gauge knows about.</summary>
@@ -40,8 +62,19 @@ public static class ToolCatalog
         LoginArguments = "login",
     };
 
+    public static readonly ToolDescriptor Cursor = new()
+    {
+        Kind = ToolKind.Cursor,
+        DisplayName = "Cursor",
+        // No CLI login: the user signs into the Cursor app; Gauge reads its local token.
+        LoginCommand = "",
+        LoginArguments = "",
+        LoginKind = LoginKind.GuidanceOnly,
+        LoginGuidance = "Cursor 앱에서 로그인하세요.",
+    };
+
     /// <summary>Declaration order is the order tools are shown in the UI.</summary>
-    public static readonly IReadOnlyList<ToolDescriptor> All = new[] { ClaudeCode, Codex };
+    public static readonly IReadOnlyList<ToolDescriptor> All = new[] { ClaudeCode, Codex, Cursor };
 
     private static readonly IReadOnlyDictionary<ToolKind, ToolDescriptor> ByKind =
         All.ToDictionary(descriptor => descriptor.Kind);

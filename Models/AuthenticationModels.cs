@@ -4,6 +4,10 @@ public enum ToolKind
 {
     ClaudeCode,
     Codex,
+    Cursor,
+    // Antigravity is intentionally not shipped yet: its rich 5h/weekly quota data is
+    // only available via the running app's local gRPC server, and the headless OAuth
+    // path is incomplete. The architecture stays ready to add it back later.
 }
 
 public enum CredentialOwner
@@ -35,6 +39,15 @@ public sealed record ToolCredential
     public string? AccountId { get; init; }
     public string? Plan { get; init; }
     public DateTimeOffset? ExpiresAt { get; init; }
+
+    // OAuth refresh material — populated only for tools whose access token expires
+    // quickly and must be re-minted in memory before each usage call (e.g. Antigravity
+    // via Google CloudCode). Null for simple Bearer-token tools. Gauge never writes
+    // these back to disk; the refresh happens in-memory only.
+    public string? RefreshToken { get; init; }
+    public string? ClientId { get; init; }
+    public string? ClientSecret { get; init; }
+    public string? ProjectId { get; init; }
 }
 
 public sealed record CredentialReadResult

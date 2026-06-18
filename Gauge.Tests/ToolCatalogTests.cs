@@ -8,6 +8,7 @@ public sealed class ToolCatalogTests
     [Theory]
     [InlineData(ToolKind.ClaudeCode, "Claude Code", "claude", "/login")]
     [InlineData(ToolKind.Codex, "Codex", "codex", "login")]
+    [InlineData(ToolKind.Cursor, "Cursor", "", "")]
     public void DescriptorCarriesNameAndLoginCommand(ToolKind kind, string name, string command, string arguments)
     {
         var descriptor = ToolCatalog.For(kind);
@@ -35,6 +36,7 @@ public sealed class ToolCatalogTests
     [Theory]
     [InlineData(ToolKind.ClaudeCode)]
     [InlineData(ToolKind.Codex)]
+    [InlineData(ToolKind.Cursor)]
     public void AuthenticationStateUsesDescriptorName(ToolKind kind)
     {
         var provider = new CliAuthenticationProvider(

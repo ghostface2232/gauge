@@ -23,6 +23,7 @@ public partial class App : Application
     private UsageViewModel? _viewModel;
     private SettingsViewModel? _settingsViewModel;
     private IReadOnlyDictionary<ToolKind, IAuthenticationProvider>? _authentication;
+    private ToolRegistry? _toolRegistry;
     private StartupService? _startupService;
     private UpdateService? _updateService;
     private HttpClient? _httpClient;
@@ -54,23 +55,34 @@ public partial class App : Application
         // Providers read each tool's real usage from its official OAuth usage API,
         // using the token the CLI already stores locally (read-only).
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        // Which tools the user has registered ("+"/remove in settings). First run
+        // defaults to Claude Code + Codex; persisted to %APPDATA%\Gauge\settings.json.
+        _toolRegistry = new ToolRegistry(new ToolRegistryStore());
         var cliCredentials = new CliCredentialSource();
-        var credentials = new CredentialSourceChain(new[] { cliCredentials });
+        var cursorCredentials = new CursorCredentialSource();
+        var credentials = new CredentialSourceChain(new ICredentialSource[] { cliCredentials, cursorCredentials });
         var locator = new CliLocator();
         var processRunner = new CliProcessRunner();
+        // Read auth state through the full credential chain (not just the CLI source)
+        // so non-CLI tools like Cursor report their real logged-in state on the card.
         var authentication = ToolCatalog.All
-            .Select(descriptor => new CliAuthenticationProvider(descriptor.Kind, cliCredentials, locator, processRunner))
+            .Select(descriptor => new CliAuthenticationProvider(descriptor.Kind, credentials, locator, processRunner))
             .ToArray<IAuthenticationProvider>();
         _authentication = authentication.ToDictionary(provider => provider.Tool);
 
-        var usageService = new UsageService(new IUsageProvider[]
-        {
-            new ClaudeProvider(_httpClient, credentials),
-            new CodexProvider(_httpClient, credentials),
-        });
+        // Providers are built for the whole catalog but only queried for registered
+        // tools (the registry filter). Adding/removing a tool needs no pipeline rebuild.
+        var usageService = new UsageService(
+            new IUsageProvider[]
+            {
+                new ClaudeProvider(_httpClient, credentials),
+                new CodexProvider(_httpClient, credentials),
+                new CursorProvider(_httpClient, credentials),
+            },
+            _toolRegistry.IsEnabled);
 
         _updateService = new UpdateService();
-        _settingsViewModel = new SettingsViewModel(authentication, _updateService);
+        _settingsViewModel = new SettingsViewModel(_toolRegistry, _authentication, _updateService);
         _settingsViewModel.AuthenticationSucceeded += OnAuthenticationSucceeded;
         _settingsViewModel.Update.ExitRequested += OnUpdateExitRequested;
         _popover.BindSettingsViewModel(_settingsViewModel);
@@ -86,6 +98,8 @@ public partial class App : Application
         _coordinator = new UsageCoordinator(usageService, DispatcherQueue.GetForCurrentThread());
         _coordinator.Updated += OnUsageUpdated;
         _coordinator.AuthenticationRequired += OnAuthenticationRequired;
+        // Adding/removing a service re-fetches immediately so its card appears/disappears.
+        _toolRegistry.Changed += OnToolRegistryChanged;
 
         // A confirmed popover open triggers a (debounced) forced refresh. Routing it
         // through Opened — not the click — keeps the toggle guard and the refresh
@@ -113,6 +127,14 @@ public partial class App : Application
         if (_coordinator is not null)
         {
             await _coordinator.RefreshAsync(RefreshReason.PopoverOpened);
+        }
+    }
+
+    private async void OnToolRegistryChanged(object? sender, EventArgs e)
+    {
+        if (_coordinator is not null)
+        {
+            await _coordinator.RefreshAsync(RefreshReason.ToolsChanged);
         }
     }
 

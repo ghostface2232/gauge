@@ -27,7 +27,9 @@ public sealed class CliCredentialSource : ICredentialSource
         {
             ToolKind.ClaudeCode => ReadClaude(),
             ToolKind.Codex => ReadCodex(),
-            _ => Invalid(tool, "지원하지 않는 도구입니다."),
+            // Tools this source does not own (e.g. Antigravity, Cursor) are handled by
+            // their dedicated sources in the chain. Report Missing so we don't shadow them.
+            _ => new CredentialReadResult { Tool = tool, Status = CredentialReadStatus.Missing, Message = "로그인 정보가 없습니다." },
         });
     }
 

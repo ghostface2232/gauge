@@ -1,6 +1,9 @@
 using System.Runtime.InteropServices;
+using Gauge.ViewModels;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -21,6 +24,10 @@ public sealed partial class PopoverWindow : Window
     // --- Layout (device-independent pixels; scaled by DPI at placement time) ---
     private const double PopoverWidthDip = 360;
     private const double PopoverHeightDip = 480; // fallback height before content is measured
+    // Hard cap on the popover's height. Content taller than this scrolls inside
+    // BodyScroll instead of growing the window; the footer bar stays pinned. ~800
+    // keeps the popover comfortable even on a 1080p display.
+    private const double MaxPopoverHeightDip = 800;
     private const double EdgeMarginDip = 12;
     private const double CornerRadiusDip = 8;
     // DesiredSize can land on a fractional physical pixel at 125/150% DPI. Keep a
@@ -125,8 +132,11 @@ public sealed partial class PopoverWindow : Window
     {
         CaptureTargetMonitor();
 
-        // Cap the scrollable body so a very tall popover still fits the work area.
-        var maxBodyDip = (_workArea.Height / _scale) - (EdgeMarginDip * 2) - FooterChromeAllowanceDip;
+        // Cap the scrollable body so the window fits the work area AND never exceeds
+        // MaxPopoverHeightDip. The footer bar (FooterChromeAllowanceDip) stays pinned
+        // below; taller content scrolls within BodyScroll.
+        var maxWindowDip = Math.Min((_workArea.Height / _scale) - (EdgeMarginDip * 2), MaxPopoverHeightDip);
+        var maxBodyDip = maxWindowDip - FooterChromeAllowanceDip;
         BodyScroll.MaxHeight = Math.Max(120, maxBodyDip);
 
         _isShown = true;
@@ -351,7 +361,9 @@ public sealed partial class PopoverWindow : Window
         // WorkArea is physical pixels; convert DIP sizes with the captured DPI.
         var width = (int)Math.Round(PopoverWidthDip * _scale);
         var margin = (int)Math.Round(EdgeMarginDip * _scale);
-        var maxHeight = _workArea.Height - (margin * 2);
+        var maxHeight = Math.Min(
+            _workArea.Height - (margin * 2),
+            (int)Math.Round(MaxPopoverHeightDip * _scale));
         var height = Math.Min(
             (int)Math.Ceiling((contentHeightDip + ContentHeightSafetyDip) * _scale),
             maxHeight);
@@ -427,6 +439,36 @@ public sealed partial class PopoverWindow : Window
         AnimateViewTransition(
             RootBorder, SettingsBorder, UsageViewTransform, SettingsViewTransform, direction: 1);
         SettingsOpened?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnAddServiceClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement anchor
+            || SettingsBorder.DataContext is not SettingsViewModel settings)
+        {
+            return;
+        }
+
+        // Build the picker from the registry's available tools each time it opens, so it
+        // reflects what is still unregistered.
+        var flyout = new MenuFlyout();
+        var addable = settings.AddableTools;
+        if (addable.Count == 0)
+        {
+            flyout.Items.Add(new MenuFlyoutItem { Text = "추가할 서비스가 없습니다", IsEnabled = false });
+        }
+        else
+        {
+            foreach (var tool in addable)
+            {
+                var kind = tool.Kind;
+                var item = new MenuFlyoutItem { Text = tool.DisplayName };
+                item.Click += (_, _) => settings.AddTool(kind);
+                flyout.Items.Add(item);
+            }
+        }
+
+        flyout.ShowAt(anchor);
     }
 
     private void OnSettingsBackClicked(object sender, RoutedEventArgs e)
