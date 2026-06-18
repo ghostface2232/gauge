@@ -40,6 +40,7 @@ public sealed partial class PopoverWindow : Window
     private const long ToggleGuardMs = 200;
 
     private readonly nint _hwnd;
+    private readonly NativeMethods.SUBCLASSPROC _windowSubclassProc;
     private bool _isShown;
     private long _lastHiddenAtTick;
 
@@ -67,6 +68,14 @@ public sealed partial class PopoverWindow : Window
         InitializeComponent();
 
         _hwnd = WindowNative.GetWindowHandle(this);
+        _windowSubclassProc = NonClientSubclassProc;
+        _ = NativeMethods.SetWindowSubclass(
+            _hwnd, _windowSubclassProc, NativeMethods.NonClientSubclassId, 0);
+        Closed += (_, _) =>
+        {
+            _ = NativeMethods.RemoveWindowSubclass(
+                _hwnd, _windowSubclassProc, NativeMethods.NonClientSubclassId);
+        };
 
         ConfigurePresenter();
         HideFromTaskbar();
@@ -150,7 +159,6 @@ public sealed partial class PopoverWindow : Window
             ApplyDwmRoundedCorners();
             UpdateDwmTheme();
         });
-        RootHost.Focus(FocusState.Programmatic); // so ESC and light dismiss work
         PlayShowAnimation();
 
         // Confirmed open (passed the toggle guard) — let listeners (e.g. the
@@ -235,6 +243,28 @@ public sealed partial class PopoverWindow : Window
                 | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED);
     }
 
+    /// <summary>
+    /// WinUI's non-resizable OverlappedPresenter can restore WS_DLGFRAME after we
+    /// clear WS_CAPTION. Claim the complete window rectangle as client area so that
+    /// residual style has no non-client pixels to paint. DWM still owns the shadow
+    /// and rounded outer clip.
+    /// </summary>
+    private nint NonClientSubclassProc(
+        nint hWnd,
+        uint message,
+        nint wParam,
+        nint lParam,
+        nuint subclassId,
+        nuint referenceData)
+    {
+        if (message == NativeMethods.WM_NCCALCSIZE && wParam != 0)
+        {
+            return 0;
+        }
+
+        return NativeMethods.DefSubclassProc(hWnd, message, wParam, lParam);
+    }
+
     private void ApplyDwmRoundedCorners()
     {
         var preference = NativeMethods.DWMWCP_ROUND;
@@ -251,12 +281,10 @@ public sealed partial class PopoverWindow : Window
         _ = NativeMethods.DwmSetWindowAttribute(
             _hwnd, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDarkMode, sizeof(int));
 
-        // Immersive dark mode does not always recolor the active-window outline for
-        // a borderless acrylic AppWindow. Use a dark surface-adjacent COLORREF in
-        // dark mode; return to the system default in light mode.
-        var borderColor = useDarkMode != 0
-            ? NativeMethods.DARK_WINDOW_BORDER_COLOR
-            : NativeMethods.DWMWA_COLOR_DEFAULT;
+        // The full-window client area established by NonClientSubclassProc makes a
+        // separate DWM outline unnecessary. Suppress it in both themes so Windows'
+        // accent color cannot produce a blue ring around the rounded acrylic edge.
+        var borderColor = NativeMethods.DWMWA_COLOR_NONE;
         _ = NativeMethods.DwmSetWindowAttribute(
             _hwnd, NativeMethods.DWMWA_BORDER_COLOR, ref borderColor, sizeof(int));
     }
@@ -509,6 +537,8 @@ public sealed partial class PopoverWindow : Window
         // WS_CAPTION = WS_BORDER | WS_DLGFRAME — the non-client frame whose square
         // inner edge shows as the thin light seam on a borderless acrylic window.
         public const long WS_CAPTION = 0x00C00000;
+        public const uint WM_NCCALCSIZE = 0x0083;
+        public const nuint NonClientSubclassId = 1;
         public const uint SWP_NOSIZE = 0x0001;
         public const uint SWP_NOMOVE = 0x0002;
         public const uint SWP_NOZORDER = 0x0004;
@@ -518,12 +548,33 @@ public sealed partial class PopoverWindow : Window
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
         public const int DWMWCP_ROUND = 2;
         public const int DWMWA_BORDER_COLOR = 34;
-        public const int DWMWA_COLOR_DEFAULT = unchecked((int)0xFFFFFFFF);
-        // COLORREF for RGB #1B3A50 (stored as 0x00BBGGRR).
-        public const int DARK_WINDOW_BORDER_COLOR = 0x00503A1B;
+        public const int DWMWA_COLOR_NONE = unchecked((int)0xFFFFFFFE);
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
         public static extern nint GetWindowLongPtr(nint hWnd, int nIndex);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        public delegate nint SUBCLASSPROC(
+            nint hWnd,
+            uint message,
+            nint wParam,
+            nint lParam,
+            nuint subclassId,
+            nuint referenceData);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowSubclass(
+            nint hWnd, SUBCLASSPROC subclassProc, nuint subclassId, nuint referenceData);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RemoveWindowSubclass(
+            nint hWnd, SUBCLASSPROC subclassProc, nuint subclassId);
+
+        [DllImport("comctl32.dll")]
+        public static extern nint DefSubclassProc(
+            nint hWnd, uint message, nint wParam, nint lParam);
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
         public static extern nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);

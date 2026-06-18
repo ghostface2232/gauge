@@ -8,11 +8,12 @@
     xmlns:conv="using:Gauge.Converters"
     mc:Ignorable="d">
 
-    <!-- RootHost is transparent so the DesktopAcrylic backdrop shows through, and
-         hit-testable so it can hold focus for ESC / light dismiss. It is the element
-         we slide + fade on show. RootBorder is where we round corners if we ever
+    <!-- RootHost is transparent so the DesktopAcrylic backdrop shows through. Its
+         tree-level KeyboardAccelerator handles ESC without making the full-window
+         Grid a focus target. It is the element we slide + fade on show. RootBorder
+         is where we round corners if we ever
          switch from DWM rounding to the transparent-window + inner-border approach. -->
-    <Grid x:Name="RootHost" Background="Transparent" IsTabStop="True">
+    <Grid x:Name="RootHost" Background="Transparent">
         <Grid.Resources>
             <conv:UsageLevelToBrushConverter x:Key="LevelToBrush" />
             <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
@@ -235,12 +236,5 @@
             </StackPanel>
         </Border>
 
-        <!-- Covers the light inner seam DWM can leave around a dark acrylic client
-             area. It is visual-only and does not affect hit testing or layout. -->
-        <Border
-            IsHitTestVisible="False"
-            BorderThickness="1"
-            BorderBrush="{ThemeResource PopoverEdgeMaskBrush}"
-            CornerRadius="8" />
     </Grid>
 </Window>

@@ -33,7 +33,7 @@ Providers read each tool's **real** rate-limit usage from its official OAuth usa
 
 - ClaudeProvider: `GET https://api.anthropic.com/api/oauth/usage` with headers `Authorization: Bearer <token>` and `anthropic-beta: oauth-2025-04-20`. Token, plan, and reset tier come from `%USERPROFILE%\.claude\.credentials.json` (`claudeAiOauth.accessToken`, `subscriptionType`, `rateLimitTier`). Response `five_hour`/`seven_day` → `{utilization 0-100, resets_at ISO8601}`.
 - CodexProvider: `GET https://chatgpt.com/backend-api/wham/usage` with `Authorization: Bearer <token>` and `ChatGPT-Account-Id`. Token from `%USERPROFILE%\.codex\auth.json` (`tokens.access_token`, `tokens.account_id`). Response `plan_type` plus `rate_limit.primary_window` (5-hour) / `secondary_window` (weekly) → `{used_percent, reset_at epochSeconds}`. This is the same endpoint the Codex CLI itself polls every 60s, so the normal 60s cadence needs no throttling (unlike Claude). Fetch failures propagate (not swallowed into an empty success) so the coordinator keeps the last good snapshot; only a missing token is a clean "no data" state.
-- Plan label: Claude maps `subscriptionType`+`rateLimitTier` (e.g. `max` + `…max_5x`/`…max_20x` → "Max 5x"/"Max 20x"); Codex maps `plan_type` (plus/pro/…). The plan is reported even when the usage call fails, since it comes from the credential/response separately.
+- Plan label: Claude maps credential fields `subscriptionType`+`rateLimitTier` (e.g. `max` + `…max_5x`/`…max_20x` → "Max 5x"/"Max 20x"), so it is available independently of a usage response. Codex maps response `plan_type` (plus/pro/…) and retains it through the coordinator's last-good snapshot on later failures.
 - Never assume the JSON schema from memory. Inspect a live response from the real endpoint first, then write parsing against that actual structure.
 - Why not ccusage: ccusage only counts tokens from local logs — it has no access to actual quotas or reset schedules. Its activity-based blocks, calendar-Monday weeks, and historical-max normalization do not match the real rate-limit windows, so the percentages and resets were wrong. It was removed.
 - No token refresh is implemented. On an expired token, the provider keeps showing the last good snapshot; the token stays fresh because the tool's own CLI rotates it on use.
@@ -56,8 +56,8 @@ Providers read each tool's **real** rate-limit usage from its official OAuth usa
 
 ## Tray icon
 
-- Try H.NotifyIcon.WinUI first.
-- If it conflicts with Windows App SDK 2.1.x or fails to build, remove it and implement the tray icon with Win32 Shell_NotifyIcon via CsWin32, using a hidden message window to receive click events. This path has no SDK-version dependency. Record which path was taken.
+- Current implementation: H.NotifyIcon.WinUI 2.4.1. It builds successfully with Windows App SDK 2.1.x and is the selected path.
+- If a future SDK update breaks H.NotifyIcon.WinUI, remove it and implement the tray icon with Win32 Shell_NotifyIcon via CsWin32, using a hidden message window to receive click events. This fallback has no SDK-version dependency; record the change here if it is taken.
 - The icon is redrawable at runtime and swaps among themed variants by the highest usage level (normal / ≥70% / ≥90%), for both light and dark taskbars.
 - Left-click toggles the popover. Right-click opens a context menu: start-on-boot toggle, exit.
 
@@ -67,9 +67,11 @@ This is a separate borderless AppWindow, not a WinUI Flyout.
 
 - Presenter: OverlappedPresenter with no title bar or border; not resizable, maximizable, or minimizable; always on top; hidden from Alt-Tab and the taskbar (IsShownInSwitchers false).
 - Backdrop: Window.SystemBackdrop set to DesktopAcrylicBackdrop for the frosted Quick Settings look.
-- Rounded corners: set the DWM window corner preference to round first. If a larger radius is needed, make the window background transparent and round an inner Border instead. Keep this switchable.
+- Borderless frame: WinUI's non-resizable OverlappedPresenter restores `WS_DLGFRAME` even after `WS_CAPTION` is cleared. Subclass the HWND with `SetWindowSubclass` and return the full window as client area from `WM_NCCALCSIZE`; otherwise a square non-client seam remains inside the rounded DWM clip. Keep the subclass delegate alive for the window lifetime and remove it when the window closes.
+- Rounded corners: set the DWM window corner preference to round. Suppress the separate DWM outline with `DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE`; DWM still owns the rounded clip and shadow. Do not add an XAML edge-mask Border, because it introduces a second corner geometry.
 - Positioning: compute from DisplayArea WorkArea (which excludes the taskbar) and place at the bottom-right corner with a small margin. Must still hold if the taskbar is moved to another edge. Account for display DPI scaling at 100/125/150%.
 - Light dismiss: implement manually. Hide the window on the Activated event when the state is Deactivated. Also close on Esc.
+- Keyboard focus: Esc is a tree-level `KeyboardAccelerator`. Do not make the full-window root Grid a tab stop or focus it programmatically; doing so draws a square focus visual along the client boundary in dark mode.
 - Toggle guard: when the popover is focused and the tray icon is clicked again, the click first deactivates and hides the window, then the handler reopens it, causing flicker. Record the last-hidden timestamp and ignore any open request within ~200ms of a hide, treating it as a toggle-close. Tray left-click must pass through this guard.
 - Slide-in: on show, translate the root element up from a small offset while fading in, ~150-200ms ease-out. Keep the duration and offset easy to tune.
 
@@ -93,7 +95,7 @@ This is a separate borderless AppWindow, not a WinUI Flyout.
 - Card header: tool name with the plan label beside it in a lighter font (e.g. "Claude Code  Max 5x").
 - Each window renders a row: a label, a progress bar, a percent number, and time until reset.
 - If a tool has no windows at all, show a no-data state for that card without breaking.
-- Progress bar color steps by usage level (ok / caution / danger). Define colors as theme resources, never hardcoded. Extract threshold boundaries (e.g. 75%, 90%) as named constants.
+- Progress bar color steps by usage level (ok / caution / danger). Define colors as theme resources, never hardcoded. The current named thresholds are 70% and 90%, shared with the tray-icon variants.
 - Always show the percent number, not color alone, for accessibility.
 - Update the tray icon to reflect the highest usage level so state is glanceable without opening the popover.
 - Follow the Quick Settings panel's generous spacing and low information density. Exact spacing and typography are left for manual tuning; do not over-fix them.

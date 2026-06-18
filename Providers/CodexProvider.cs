@@ -16,8 +16,9 @@ namespace Gauge.Providers;
 /// plan tier — the same data the CLI itself sees, and always current (unlike scanning
 /// local session logs, which go stale once Codex hasn't run for a while).
 ///
-/// Degrades gracefully: a missing credential or network error yields an empty window
-/// list, and the coordinator keeps showing the last good snapshot.
+/// A missing credential is a clean empty-data result. Network and API failures
+/// propagate so the coordinator keeps showing its last good snapshot rather than
+/// replacing it with an empty success.
 /// </summary>
 public sealed class CodexProvider : IUsageProvider
 {
