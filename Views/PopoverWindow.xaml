@@ -214,69 +214,67 @@
             </Grid>
         </Border>
 
-        <!-- Settings is a second view inside the same acrylic popover. -->
-        <Border x:Name="SettingsBorder" Padding="16" VerticalAlignment="Top" Visibility="Collapsed">
+        <!-- Settings is a second view inside the same acrylic popover. Stretches so
+             the update row can sit at the bottom (the window keeps the usage view's
+             height while settings is shown). -->
+        <Border x:Name="SettingsBorder" Padding="16" VerticalAlignment="Stretch" Visibility="Collapsed">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="SettingsViewTransform" />
             </Border.RenderTransform>
-            <StackPanel Spacing="14">
-                <Grid ColumnSpacing="8">
+            <Grid RowSpacing="14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Spacing="14" VerticalAlignment="Top">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Style="{StaticResource BorderlessIconButtonStyle}"
+                                Click="OnSettingsBackClicked" ToolTipService.ToolTip="뒤로">
+                            <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                        </Button>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="설정"
+                                   Style="{StaticResource SubtitleTextBlockStyle}" />
+                    </Grid>
+
+                    <!-- Two accounts side by side, equal width and height. -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ContentControl Grid.Column="0" Content="{Binding Authentication[0]}"
+                                        ContentTemplate="{StaticResource AuthCardTemplate}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                        <ContentControl Grid.Column="1" Content="{Binding Authentication[1]}"
+                                        ContentTemplate="{StaticResource AuthCardTemplate}"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Bottom-aligned update row: version on the left, action button on the
+                     right (no card), mirroring the usage view's footer. The button checks
+                     for updates and, once one is found, switches to applying it. -->
+                <Grid Grid.Row="1" ColumnSpacing="6" VerticalAlignment="Bottom"
+                      DataContext="{Binding Update}">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Style="{StaticResource BorderlessIconButtonStyle}"
-                            Click="OnSettingsBackClicked" ToolTipService.ToolTip="뒤로">
-                        <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                    </Button>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="설정"
-                               Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Opacity="0.7"
+                               Text="{Binding VersionText}"
+                               Style="{StaticResource CaptionTextBlockStyle}" />
+                    <Button Grid.Column="1" Content="{Binding ActionButtonText}"
+                            Command="{Binding ActionCommand}"
+                            ToolTipService.ToolTip="{Binding StatusText}" />
                 </Grid>
-
-                <!-- Two accounts side by side, equal width and height. -->
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <ContentControl Grid.Column="0" Content="{Binding Authentication[0]}"
-                                    ContentTemplate="{StaticResource AuthCardTemplate}"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-                    <ContentControl Grid.Column="1" Content="{Binding Authentication[1]}"
-                                    ContentTemplate="{StaticResource AuthCardTemplate}"
-                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-                </Grid>
-
-                <!-- Update card: label and buttons share one row; buttons right-aligned. -->
-                <Border Padding="14" CornerRadius="8" DataContext="{Binding Update}"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                    <StackPanel Spacing="10">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="업데이트" VerticalAlignment="Center"
-                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                                        HorizontalAlignment="Right">
-                                <Button Content="업데이트 확인" Command="{Binding CheckCommand}" />
-                                <Button Content="지금 업데이트" Style="{StaticResource AccentButtonStyle}"
-                                        Command="{Binding UpdateCommand}"
-                                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVis}}" />
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock Text="{Binding CurrentVersionText}" Opacity="0.75"
-                                   Style="{StaticResource CaptionTextBlockStyle}" />
-                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Visibility="{Binding HasStatus, Converter={StaticResource BoolToVis}}" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
+            </Grid>
         </Border>
 
     </Grid>

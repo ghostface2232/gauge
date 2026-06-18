@@ -5,8 +5,9 @@ using Gauge.Services;
 namespace Gauge.ViewModels;
 
 /// <summary>
-/// Settings-screen update card: shows the current version, checks GitHub Releases
-/// (automatically on launch, or on demand), and applies an update with one click.
+/// Footer update control: shows the current version and a single action button
+/// that checks GitHub Releases ("업데이트 확인") and, once a newer build is found,
+/// switches to applying it ("업데이트"). Status text is surfaced as the button tooltip.
 /// </summary>
 public sealed partial class UpdateViewModel : ObservableObject
 {
@@ -16,14 +17,12 @@ public sealed partial class UpdateViewModel : ObservableObject
     public UpdateViewModel(UpdateService service)
     {
         _service = service;
-        CurrentVersionText = $"현재 버전 {service.CurrentVersion.ToString(3)}";
-        CheckCommand = new AsyncRelayCommand(CheckAsync, () => !IsBusy);
-        UpdateCommand = new AsyncRelayCommand(UpdateAsync, () => !IsBusy && IsUpdateAvailable);
+        VersionText = service.CurrentVersion.ToString(3);
+        ActionCommand = new AsyncRelayCommand(RunActionAsync, () => !IsBusy);
     }
 
-    public string CurrentVersionText { get; }
-    public IAsyncRelayCommand CheckCommand { get; }
-    public IAsyncRelayCommand UpdateCommand { get; }
+    public string VersionText { get; }
+    public IAsyncRelayCommand ActionCommand { get; }
 
     /// <summary>
     /// Raised after the installer has launched. The app should tear down and exit
@@ -35,17 +34,11 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty] public partial bool IsBusy { get; set; }
     [ObservableProperty] public partial bool IsUpdateAvailable { get; set; }
 
-    public bool HasStatus => !string.IsNullOrEmpty(StatusText);
+    public string ActionButtonText => IsUpdateAvailable ? "업데이트" : "업데이트 확인";
 
-    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(HasStatus));
+    partial void OnIsBusyChanged(bool value) => ActionCommand.NotifyCanExecuteChanged();
 
-    partial void OnIsBusyChanged(bool value)
-    {
-        CheckCommand.NotifyCanExecuteChanged();
-        UpdateCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnIsUpdateAvailableChanged(bool value) => UpdateCommand.NotifyCanExecuteChanged();
+    partial void OnIsUpdateAvailableChanged(bool value) => OnPropertyChanged(nameof(ActionButtonText));
 
     /// <summary>Quiet check at launch; leaves the status blank unless an update is found.</summary>
     public async Task CheckInBackgroundAsync()
@@ -53,6 +46,8 @@ public sealed partial class UpdateViewModel : ObservableObject
         if (IsBusy) return;
         ApplyResult(await _service.CheckAsync(), quiet: true);
     }
+
+    private Task RunActionAsync() => IsUpdateAvailable ? UpdateAsync() : CheckAsync();
 
     private async Task CheckAsync()
     {
