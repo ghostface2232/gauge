@@ -1,4 +1,4 @@
-<img width="128" alt="gauge_icon" src="https://github.com/user-attachments/assets/ab882100-f767-4ed1-91d2-91c7c04492d5" />
+<img width="128" alt="icon_gauge" src="https://github.com/user-attachments/assets/b5b926e2-9f80-4fc6-9a73-7dc028f05e4c" />
 
 # Gauge
 
@@ -6,7 +6,7 @@ Gauge는 Claude Code, Codex, Cursor의 실제 사용량 한도를 손쉽게 확�
 
 
 ## 스크린샷
-<img width="572" height="862" alt="스크린샷 2026-06-19 091057" src="https://github.com/user-attachments/assets/9f3140c2-f139-4b76-837f-9346306076c1" />
+<img width="572" height="862" alt="screenshot_gauge" src="https://github.com/user-attachments/assets/9f3140c2-f139-4b76-837f-9346306076c1" />
 
 
 
