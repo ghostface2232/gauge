@@ -1,4 +1,4 @@
-<img width="128" alt="icon_gauge" src="https://github.com/user-attachments/assets/b5b926e2-9f80-4fc6-9a73-7dc028f05e4c" />
+<img width="1440" alt="top_banner_gauge" src="https://github.com/user-attachments/assets/54514e8b-e494-4386-91ec-3d7c325394d1" />
 
 # Gauge
 
@@ -7,7 +7,8 @@ Gauge is a Windows system-tray app that lets you check the real usage limits of 
 
 ## Screenshot
 
-<img width="572" height="862" alt="screenshot_gauge" src="https://github.com/user-attachments/assets/9f3140c2-f139-4b76-837f-9346306076c1" />
+<img width="1440" alt="introduction_01 png" src="https://github.com/user-attachments/assets/d9ecec5a-e98d-4ea5-b988-b8d194fde310" />
+<img width="1440" alt="introduction_02" src="https://github.com/user-attachments/assets/3fd6efe8-e584-4396-bd8d-367aeff630dc" />
 
 
 ## Features
