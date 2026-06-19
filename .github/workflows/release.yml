@@ -1,8 +1,10 @@
-# Builds the per-user installer and publishes a GitHub Release whenever a version
-# tag (e.g. v0.1.0) is pushed. The in-app updater reads the same <Version>, so the
-# tag must match Gauge.csproj's <Version> prefixed with "v".
+# Builds the per-user installer and creates a DRAFT GitHub Release whenever a version
+# tag (e.g. v0.1.0) is pushed. The draft carries the installer asset and auto-generated
+# notes as a starting point; writing the final release notes and publishing the release
+# are done manually. The in-app updater reads the same <Version>, so the tag must match
+# Gauge.csproj's <Version> prefixed with "v" (and the updater only sees it once published).
 #
-# Local alternative: pwsh -File release.ps1 (see README).
+# Local alternative: pwsh -File release.ps1 -Draft (see README).
 name: release
 
 on:
@@ -30,13 +32,15 @@ jobs:
       - name: Build installer
         run: pwsh -File build-installer.ps1
 
-      - name: Publish GitHub Release
+      - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        # Idempotent: if the release already exists (e.g. created locally by
-        # release.ps1, whose tag push also triggers this workflow), just replace
-        # the installer asset instead of failing.
+        # Creates a DRAFT release with the installer asset and auto-generated notes as a
+        # starting point — final notes and publishing are done manually. Idempotent: if a
+        # release/draft for this tag already exists (e.g. created locally by release.ps1,
+        # whose tag push also triggers this workflow), just replace the asset instead of
+        # failing.
         run: >
           gh release create "${{ github.ref_name }}" dist/GaugeSetup-win-x64.exe
-          --title "${{ github.ref_name }}" --generate-notes
+          --title "${{ github.ref_name }}" --draft --generate-notes
           || gh release upload "${{ github.ref_name }}" dist/GaugeSetup-win-x64.exe --clobber
