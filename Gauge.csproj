@@ -31,6 +31,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <!-- Microsoft.Data.Sqlite 10.0.9 still pulls SQLitePCLRaw 2.1.11, whose bundled
+         native SQLite (< 3.50.2) is vulnerable to CVE-2025-6965 (NU1903). Override the
+         whole stack to 3.0.x, which bundles SQLite 3.50.4. SQLitePCLRaw.core has no API
+         changes across the v3 bump, so Microsoft.Data.Sqlite works against it unchanged.
+         Remove once Microsoft.Data.Sqlite ships a build that references 3.0.x itself. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
