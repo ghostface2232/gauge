@@ -69,13 +69,16 @@
         <!-- Usage view. RootBorder spans the window edges; padding is applied per
              region so the footer can be a full-bleed bottom bar (Win11 Start-menu
              style). DWM rounds the window's outer corners. -->
-        <Border x:Name="RootBorder" VerticalAlignment="Top">
+        <Border x:Name="RootBorder" VerticalAlignment="Stretch">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="UsageViewTransform" />
             </Border.RenderTransform>
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
+                    <!-- Fill the arranged client height so the window's small DPI
+                         safety allowance is absorbed by the body. This keeps this
+                         footer on the same bottom edge as the settings footer. -->
+                    <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
@@ -101,10 +104,10 @@
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollMode="Disabled"
                     Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                    <!-- Bottom margin scrolls with the content, giving the last card the
-                         same 16dip breathing room as the top (8 here + each card's 8dip
-                         margin) without leaving a fixed band above the footer. -->
-                    <ItemsControl ItemsSource="{Binding Cards}" Margin="0,0,0,8">
+                    <!-- Bottom margin scrolls with the content. Together with the last
+                         card's 8dip margin and the 4dip window-height safety allowance
+                         absorbed by this row, it matches the 16dip top spacing. -->
+                    <ItemsControl ItemsSource="{Binding Cards}" Margin="0,0,0,4">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border
@@ -214,8 +217,8 @@
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0"
-                        Height="48"
-                        Padding="16,8">
+                        Height="52"
+                        Padding="16,9">
                     <Grid ColumnSpacing="6" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -231,6 +234,7 @@
                         <Button
                             Grid.Column="1"
                             Style="{StaticResource BorderlessIconButtonStyle}"
+                            Padding="8,9"
                             Command="{Binding RefreshCommand}"
                             ToolTipService.ToolTip="새로고침">
                             <FontIcon Glyph="&#xE72C;" FontSize="14" />
@@ -238,6 +242,7 @@
                         <Button
                             Grid.Column="2"
                             Style="{StaticResource BorderlessIconButtonStyle}"
+                            Padding="8,9"
                             Click="OnSettingsClicked"
                             ToolTipService.ToolTip="설정">
                             <FontIcon Glyph="&#xE713;" FontSize="14" />
@@ -315,8 +320,8 @@
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0"
-                        Height="48"
-                        Padding="16,8"
+                        Height="52"
+                        Padding="16,9"
                         DataContext="{Binding Update}">
                     <Grid ColumnSpacing="6" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
@@ -328,7 +333,7 @@
                                    Style="{StaticResource CaptionTextBlockStyle}" />
                         <Button Grid.Column="1" Content="{Binding ActionButtonText}"
                                 Command="{Binding ActionCommand}"
-                                Height="32" Padding="12,0" VerticalAlignment="Center"
+                                Height="32" Padding="12,4" VerticalAlignment="Center"
                                 ToolTipService.ToolTip="{Binding StatusText, Converter={StaticResource EmptyToNull}}" />
                     </Grid>
                 </Border>
