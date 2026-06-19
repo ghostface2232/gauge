@@ -2,68 +2,69 @@
 
 # Gauge
 
-Gauge는 Claude Code, Codex, Cursor의 실제 사용량 한도를 손쉽게 확인하는 Windows 시스템 트레이 앱입니다.
+Gauge is a Windows system-tray app that lets you check the real usage limits of Claude Code, Codex, and Cursor at a glance.
 
 
-## 스크린샷
+## Screenshot
+
 <img width="572" height="862" alt="screenshot_gauge" src="https://github.com/user-attachments/assets/9f3140c2-f139-4b76-837f-9346306076c1" />
 
 
+## Features
 
-## 주요 기능
-
-- Claude Code, Codex, Cursor의 실제 사용량 표시
-- 설정 화면의 **+ 서비스 추가**로 원하는 서비스를 등록하고, 카드에서 제거 가능(기본: Claude Code · Codex)
-- 70% 초과 시 노랑색 / 90% 초과 시 빨간색으로 진행 막대 및 트레이 아이콘 컬러 변경
-- 60초 주기로 사용량 갱신 / 시스템 트레이에서 앱 열 때 즉시 갱신
-- 도구가 많아지면 팝오버 높이를 제한하고 내부 스크롤로 표시
-- Windows 시작 시 자동 실행 설정
-- 라이트/다크 모드 지원
-
-
-## 요구 사항
-
-- Windows 10 2004(빌드 19041) 이상 또는 Windows 11
-- x64 PC
-- 사용할 도구 설치: Claude Code CLI, Codex CLI, Cursor 앱 중 필요한 것
-- 해당 도구에 로그인된 상태(Cursor는 Cursor 앱에서 로그인)
+- Shows real usage for Claude Code, Codex, and Cursor.
+- Register the services you want with **+ Add service** in settings, and remove them from their card (default: Claude Code · Codex).
+- Progress bars and the tray icon turn yellow above 70% and red above 90%.
+- Refreshes usage every 60 seconds, and immediately when you open the app from the tray.
+- Caps the popover height and scrolls internally when you add many tools.
+- Optional run on Windows startup.
+- Light and dark mode.
+- UI in English, Korean, or Japanese — detected from your Windows display language on first run (English for anything else).
 
 
-## 실행
+## Requirements
 
-1. `GaugeSetup-win-x64.exe`로 설치합니다(관리자 권한 불필요). 완료 화면에서 바로 실행할 수 있습니다.
-2. 작업 표시줄 알림 영역의 Gauge 아이콘을 왼쪽 클릭합니다.
-
-앱은 일반 메인 창을 띄우지 않습니다. 트레이 아이콘을 오른쪽 클릭하면 자동 시작을 전환하거나 앱을 종료할 수 있습니다.
-
-서명되지 않은 로컬 빌드에서는 Windows SmartScreen의 알 수 없는 게시자 경고가 나타날 수 있습니다.
+- Windows 10 version 2004 (build 19041) or later, or Windows 11.
+- An x64 PC.
+- The tools you want to track installed: the Claude Code CLI, the Codex CLI, and/or the Cursor app.
+- Being signed in to those tools (for Cursor, sign in from the Cursor app).
 
 
-## 로그인과 데이터
+## Running
 
-Gauge는 자격증명을 직접 발급하거나 갱신하지 않습니다. 각 공식 CLI가 관리하는 파일을 읽기 전용으로 사용합니다.
+1. Install with `GaugeSetup-win-x64.exe` (no administrator rights required). You can launch it straight from the finish page.
+2. Left-click the Gauge icon in the taskbar notification area.
 
-| 도구 | 자격증명 위치 | 로그인 방법 |
+Gauge has no ordinary main window. Right-click the tray icon to toggle run-on-startup or quit the app.
+
+Unsigned local builds may trigger Windows SmartScreen's unknown-publisher warning.
+
+
+## Sign-in and data
+
+Gauge never issues or refreshes credentials itself. It reads the files managed by each official CLI, read-only.
+
+| Tool | Credential location | Sign-in |
 | --- | --- | --- |
 | Claude Code | `%USERPROFILE%\.claude\.credentials.json` | `claude /login` |
-| Codex | `%CODEX_HOME%\auth.json` 또는 `%USERPROFILE%\.codex\auth.json` | `codex login` |
-| Cursor | `%APPDATA%\Cursor\User\globalStorage\state.vscdb` (읽기 전용) | Cursor 앱에서 로그인 |
+| Codex | `%CODEX_HOME%\auth.json` or `%USERPROFILE%\.codex\auth.json` | `codex login` |
+| Cursor | `%APPDATA%\Cursor\User\globalStorage\state.vscdb` (read-only) | Sign in from the Cursor app |
 
-Cursor는 별도 CLI 로그인이 없으며, Cursor 앱에 로그인하면 Gauge가 로컬 세션 토큰을 읽어 사용량을 표시합니다(파일은 읽기 전용으로만 접근).
+Cursor has no separate CLI login: once you sign in to the Cursor app, Gauge reads its local session token to display usage (the file is opened read-only).
 
-로그인이 필요하면 팝오버의 설정 화면에서 해당 CLI 로그인 프로세스를 열 수 있습니다. Gauge는 CLI 자격증명 파일을 쓰거나 삭제하지 않으며, 토큰이나 CLI 로그인 출력을 기록하지 않습니다.
-
-
-## 업데이트
-
-Gauge는 시작 시 GitHub의 최신 Release를 조용히 확인하고, 새 버전이 있으면 설정 화면의 **업데이트** 카드에 표시합니다. 카드의 **업데이트 확인** 버튼으로 수동 확인도 가능합니다.
-
-새 버전이 있을 때 **지금 업데이트**를 누르면 설치 프로그램을 내려받아 자동(무인) 모드로 실행합니다. 실행 중인 Gauge가 종료되고, 같은 위치에 새 버전이 설치된 뒤 자동으로 다시 시작됩니다. 관리자 권한은 필요하지 않습니다.
+When a sign-in is needed, you can start the relevant CLI login process from the settings screen in the popover. Gauge does not write to or delete CLI credential files, and never logs tokens or CLI login output.
 
 
-## 현재 제한 사항
+## Updates
 
-- CLI가 갱신하는 토큰에 의존하므로 오랫동안 CLI를 사용하지 않아 토큰이 만료되면 CLI에서 다시 로그인해야 할 수 있습니다.
-- 앱 자체 OAuth/PKCE 및 토큰 갱신은 구현되어 있지 않습니다.
-- 공식 코드 서명이 포함되어 있지 않습니다.
-- 배포 자동화는 현재 x64만 대상으로 합니다.
+On startup Gauge quietly checks GitHub for the latest release and, if a newer version exists, surfaces it on the **Update** card in settings. You can also check manually with the card's **Check for updates** button.
+
+When an update is available, clicking **Update** downloads the installer and runs it silently: the running Gauge exits, the new version is installed in the same location, and the app restarts automatically. No administrator rights are required.
+
+
+## Current limitations
+
+- Gauge relies on the tokens each CLI refreshes, so if you go a long time without using a CLI and its token expires, you may need to sign in again from that CLI.
+- The app does not implement its own OAuth/PKCE or token refresh.
+- It includes no official code signing.
+- Release automation currently targets x64 only.
