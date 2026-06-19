@@ -22,8 +22,8 @@
                  light theme, a soft lighten in dark theme. -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="IconButtonHoverBrush" Color="#12000000" />
-                    <SolidColorBrush x:Key="IconButtonPressedBrush" Color="#26000000" />
+                    <SolidColorBrush x:Key="IconButtonHoverBrush" Color="#0D000000" />
+                    <SolidColorBrush x:Key="IconButtonPressedBrush" Color="#1A000000" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="IconButtonHoverBrush" Color="#1FFFFFFF" />
