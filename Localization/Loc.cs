@@ -25,6 +25,11 @@ public static class Loc
     /// <summary>
     /// Sets the active language and aligns the thread/default cultures with it so that
     /// any culture-aware formatting elsewhere matches the chosen language.
+    ///
+    /// Because this changes <see cref="CultureInfo.CurrentCulture"/> process-wide, anything
+    /// that parses or formats machine-facing data (provider API timestamps/numbers, JSON,
+    /// version strings) must pass <see cref="CultureInfo.InvariantCulture"/> explicitly
+    /// rather than rely on the ambient culture.
     /// </summary>
     public static void Initialize(AppLanguage language)
     {

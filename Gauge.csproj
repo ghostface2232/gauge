@@ -30,6 +30,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The test project verifies the localization table (internal Strings.Table). -->
+    <InternalsVisibleTo Include="Gauge.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
     <!-- Microsoft.Data.Sqlite 10.0.9 still pulls SQLitePCLRaw 2.1.11, whose bundled
          native SQLite (< 3.50.2) is vulnerable to CVE-2025-6965 (NU1903). Override the

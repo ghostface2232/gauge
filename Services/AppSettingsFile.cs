@@ -11,14 +11,24 @@ internal sealed class AppSettingsDto
 
     /// <summary>Two-letter UI language code ("ko" / "en" / "ja"). Null until first resolved.</summary>
     public string? Language { get; set; }
+
+    /// <summary>
+    /// Any properties not modelled above — keys written by a newer build, or settings this
+    /// build doesn't know about. Captured on load and written back verbatim so a
+    /// read-modify-write that touches one field never drops another's data.
+    /// </summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
 /// <summary>
 /// Shared reader/writer for the single <c>settings.json</c> file. Multiple stores
 /// (<see cref="ToolRegistryStore"/>, <see cref="LanguageService"/>) persist different
 /// keys into the same file, so writes are read-modify-write: load the current document,
-/// mutate one field, write the whole thing back. That keeps one store from clobbering
-/// another's key. Null fields are omitted, so unrelated absent keys never appear.
+/// mutate one field, write the whole thing back. Unmodelled keys (a newer build's
+/// settings, or this build's own other keys) survive the round-trip via
+/// <see cref="AppSettingsDto.Extra"/>, so no store ever clobbers another's data. Null
+/// modelled fields are omitted, so unrelated absent keys never appear.
 /// </summary>
 internal static class AppSettingsFile
 {

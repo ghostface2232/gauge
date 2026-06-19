@@ -90,7 +90,9 @@ public sealed class CursorProvider : IUsageProvider
 
         var plan = MapPlan(root.GetStringOrNull("membershipType"));
         var percentUsed = ParsePlanPercentUsed(root);
-        var resetTime = ParseBillingCycleEnd(root.GetStringOrNull("billingCycleEnd"));
+        // Parse via the shared extension (InvariantCulture + explicit style), never the
+        // ambient culture — the UI language now sets CurrentCulture, but this is API data.
+        var resetTime = root.GetDateTimeOffsetOrNull("billingCycleEnd");
 
         var window = new UsageWindow
         {
@@ -160,9 +162,6 @@ public sealed class CursorProvider : IUsageProvider
     }
 
     private static double Clamp(double value) => Math.Clamp(value, 0.0, 100.0);
-
-    private static DateTimeOffset? ParseBillingCycleEnd(string? value) =>
-        DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
     private static string? MapPlan(string? membershipType) => membershipType?.ToLowerInvariant() switch
     {

@@ -71,9 +71,9 @@ internal static class Strings
         ["DateFormat_MonthDay"] = ["M월 d일",         "MMM d",             "M月d日"],
 
         // ── Notifications ──────────────────────────────────────────────────
-        ["Notif_ThresholdTitle"] = ["{0} · {1} 한도 {2}% 도달", "{0} · {1} limit {2}% reached", "{0} · {1} 上限{2}%に到達"], // {0}=tool {1}=label {2}=percent
+        ["Notif_ThresholdTitle"] = ["{0} · {1} 한도 {2}% 도달", "{0} · {2}% of {1} limit used", "{0} · {1} 上限{2}%に到達"], // {0}=tool {1}=label {2}=percent
         ["Notif_ResetTitle"]  = ["{0} · {1} 한도 초기화", "{0} · {1} limit reset", "{0} · {1} 上限リセット"],
-        ["Notif_ResetMessage"] = ["현재 {0:0}%로 한도 초기화됨", "Reset — {0:0}% now available", "現在{0:0}%にリセットされました"],
+        ["Notif_ResetMessage"] = ["현재 {0:0}%로 한도 초기화됨", "Reset — {0:0}% now available", "利用枠が{0:0}%にリセットされました"],
         ["Notif_Suppressed"]  = ["방해 금지 중 발생한 {0}건 중 최근 알림", "Latest of {0} alerts during Do Not Disturb", "応答不可中の{0}件のうち最新の通知"],
 
         // ── Authentication state messages ──────────────────────────────────
@@ -96,7 +96,7 @@ internal static class Strings
                                  "CLIは正常に終了しましたが、ログイン情報が見つかりませんでした。CLIでログインを確認してください。"],
         ["Auth_Expired"]      = ["로그인이 만료되었거나 거부되었습니다. 다시 로그인하세요.",
                                  "Your sign-in expired or was rejected. Please sign in again.",
-                                 "ログインの有効期限が切れたか拒否されました。再度ログインしてください。"],
+                                 "ログイン有効期限が切れたか拒否されました。再度ログインしてください。"],
         ["Auth_SignedInWithPlan"] = ["로그인됨 · {0}", "Signed in · {0}", "ログイン済み · {0}"],
         ["Auth_SignedIn"]     = ["로그인됨",          "Signed in",         "ログイン済み"],
         ["Auth_InvalidCredential"] = ["로그인 정보가 올바르지 않습니다.", "The sign-in information is invalid.", "ログイン情報が正しくありません。"],
@@ -107,14 +107,14 @@ internal static class Strings
         // ── Credential source messages ─────────────────────────────────────
         ["Cred_Missing"]      = ["로그인 정보가 없습니다.", "No sign-in information.", "ログイン情報がありません。"],
         ["Cred_ClaudeNoToken"] = ["Claude Code 자격증명에 OAuth 토큰이 없습니다.", "No OAuth token in the Claude Code credentials.", "Claude Codeの資格情報にOAuthトークンがありません。"],
-        ["Cred_ClaudeExpired"] = ["Claude Code 로그인이 만료되었습니다. 다시 로그인하세요.", "Your Claude Code sign-in expired. Please sign in again.", "Claude Codeのログインの有効期限が切れました。再度ログインしてください。"],
+        ["Cred_ClaudeExpired"] = ["Claude Code 로그인이 만료되었습니다. 다시 로그인하세요.", "Your Claude Code sign-in expired. Please sign in again.", "Claude Codeのログイン有効期限が切れました。再度ログインしてください。"],
         ["Cred_CodexNoToken"] = ["Codex 자격증명에 OAuth 토큰이 없습니다.", "No OAuth token in the Codex credentials.", "Codexの資格情報にOAuthトークンがありません。"],
         ["Cred_ReadFailed"]   = ["자격증명 파일을 읽을 수 없습니다. CLI에서 다시 로그인하세요.", "Couldn't read the credential file. Sign in again from the CLI.", "資格情報ファイルを読み取れません。CLIで再度ログインしてください。"],
         ["Cred_CliInUse"]     = ["공식 CLI 로그인 정보를 사용 중입니다.", "Using the official CLI sign-in.", "公式CLIのログイン情報を使用中です。"],
         ["Cred_CursorReadFailed"] = ["Cursor 로그인 정보를 읽을 수 없습니다. Cursor 앱에서 다시 로그인하세요.", "Couldn't read the Cursor sign-in. Sign in again in the Cursor app.", "Cursorのログイン情報を読み取れません。Cursorアプリで再度ログインしてください。"],
         ["Cred_CursorMissing"] = ["Cursor 로그인 정보가 없습니다.", "No Cursor sign-in found.", "Cursorのログイン情報がありません。"],
         ["Cred_CursorParseFailed"] = ["Cursor 로그인 토큰을 해석할 수 없습니다. Cursor 앱에서 다시 로그인하세요.", "Couldn't parse the Cursor sign-in token. Sign in again in the Cursor app.", "Cursorのログイントークンを解析できません。Cursorアプリで再度ログインしてください。"],
-        ["Cred_CursorExpired"] = ["Cursor 로그인이 만료되었습니다. Cursor 앱에서 다시 로그인하세요.", "Your Cursor sign-in expired. Sign in again in the Cursor app.", "Cursorのログインの有効期限が切れました。Cursorアプリで再度ログインしてください。"],
+        ["Cred_CursorExpired"] = ["Cursor 로그인이 만료되었습니다. Cursor 앱에서 다시 로그인하세요.", "Your Cursor sign-in expired. Sign in again in the Cursor app.", "Cursorのログイン有効期限が切れました。Cursorアプリで再度ログインしてください。"],
         ["Cred_CursorInUse"]  = ["Cursor 앱 로그인 정보를 사용 중입니다.", "Using the Cursor app sign-in.", "Cursorアプリのログイン情報を使用中です。"],
 
         // ── Tool guidance (resolved lazily; see ToolCatalog) ───────────────
