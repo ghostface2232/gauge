@@ -37,9 +37,22 @@ public sealed partial class UpdateViewModel : ObservableObject
 
     public string ActionButtonText => IsUpdateAvailable ? Loc.Get("Update_Apply") : Loc.Get("Update_Check");
 
+    /// <summary>Segoe Fluent Icons glyph: Download (E896) once an update is ready, otherwise Sync (E895, check).</summary>
+    public string ActionGlyph => IsUpdateAvailable ? "\uE896" : "\uE895";
+
+    /// <summary>Icon-only button label: live status when present, otherwise the action name.</summary>
+    public string Tooltip => string.IsNullOrEmpty(StatusText) ? ActionButtonText : StatusText;
+
     partial void OnIsBusyChanged(bool value) => ActionCommand.NotifyCanExecuteChanged();
 
-    partial void OnIsUpdateAvailableChanged(bool value) => OnPropertyChanged(nameof(ActionButtonText));
+    partial void OnIsUpdateAvailableChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ActionButtonText));
+        OnPropertyChanged(nameof(ActionGlyph));
+        OnPropertyChanged(nameof(Tooltip));
+    }
+
+    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(Tooltip));
 
     /// <summary>Quiet check at launch; leaves the status blank unless an update is found.</summary>
     public async Task CheckInBackgroundAsync()
