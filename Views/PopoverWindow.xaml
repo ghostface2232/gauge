@@ -178,7 +178,7 @@
                             <DataTemplate>
                                 <Border
                                     Margin="0,0,0,8"
-                                    Padding="14"
+                                    Padding="14,14,14,8"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -191,12 +191,13 @@
                                             Spacing="6">
                                             <TextBlock
                                                 VerticalAlignment="Center"
+                                                FontSize="16"
                                                 Text="{Binding ToolName}"
                                                 Style="{StaticResource BodyStrongTextBlockStyle}" />
                                             <TextBlock
                                                 VerticalAlignment="Center"
                                                 Opacity="0.5"
-                                                FontSize="14"
+                                                FontSize="15"
                                                 Text="{Binding Plan}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
                                                 Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" />
