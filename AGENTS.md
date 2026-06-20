@@ -177,3 +177,10 @@ Gauge ships Korean, English, and Japanese. The UI language is fixed once at star
 - async/await throughout; never block on async.
 - Isolate all network calls and JSON parsing with exception handling and timeouts.
 - No hardcoded colors and no magic numbers for thresholds; use theme resources and named constants.
+
+## Comments
+
+- Comments should explain non-obvious invariants, race/concurrency constraints, data-loss risks, platform/SDK quirks, "why this and not the obvious alternative", protocol/JSON-schema facts, magic-number rationale, and security notes.
+- Do not add comments that restate nearby code, narrate ordinary control flow, or preserve temporary implementation history ("previously we…", "comes in a later step").
+- Prefer short English comments in complete sentences. Avoid decorative banners and numbered step comments unless they genuinely help navigate a long algorithm or a wide span of code.
+- When trimming, do not over-simplify: keep the essential content and references (URLs, file paths, header/key names, API names) so future navigation and understanding stay easy. Trim a redundant clause rather than deleting an otherwise-useful comment, and keep XML `<summary>` blocks that describe a type's purpose or contract.

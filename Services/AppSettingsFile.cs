@@ -28,11 +28,10 @@ internal sealed class AppSettingsDto
 /// Shared reader/writer for the single <c>settings.json</c> file. Multiple stores
 /// (<see cref="ToolRegistryStore"/>, <see cref="LanguageService"/>,
 /// <see cref="NotificationSettingsStore"/>) persist different keys into the same file, so
-/// writes are read-modify-write: load the current document,
-/// mutate one field, write the whole thing back. Unmodelled keys (a newer build's
-/// settings, or this build's own other keys) survive the round-trip via
-/// <see cref="AppSettingsDto.Extra"/>, so no store ever clobbers another's data. Null
-/// modelled fields are omitted, so unrelated absent keys never appear.
+/// writes are read-modify-write: load the current document, mutate one field, write the
+/// whole thing back. Unmodelled keys survive via <see cref="AppSettingsDto.Extra"/> so no
+/// store clobbers another's data. Null modelled fields are omitted, so unrelated absent
+/// keys never appear.
 /// </summary>
 internal static class AppSettingsFile
 {

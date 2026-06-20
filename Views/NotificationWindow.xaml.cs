@@ -19,14 +19,12 @@ public sealed partial class NotificationWindow : Window, IDisposable
     private const double SlideOffsetDip = 20;
     private const int ShowDurationMs = 180;
     private const int VisibleDurationMs = 4500;
-    // Exit slides the whole window (acrylic backdrop included) down off the work
-    // area while fading the content. The backdrop lives at the window/compositor
-    // level, not in the XAML tree, so a content-only opacity fade cannot dissolve
-    // it — moving the window is what makes the frosted panel actually disappear.
     // Exit fades the whole window — content and acrylic backdrop together — via a
-    // layered-window alpha ramp. Moving the window instead made the DWM backdrop
-    // trail the content by a frame (text appeared to lead the frosted panel);
-    // fading the window as one surface keeps them locked together.
+    // layered-window alpha ramp. A content-only opacity fade can't dissolve the
+    // backdrop (it lives at the window/compositor level, not the XAML tree), and
+    // moving the window off-screen made the DWM backdrop trail the content by a
+    // frame (text appeared to lead the frosted panel). Fading the window as one
+    // surface keeps them locked together.
     private const int DismissFadeDurationMs = 320;
 
     private readonly nint _hwnd;

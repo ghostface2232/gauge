@@ -72,7 +72,7 @@ public static class ToolCatalog
         LoginCommand = "",
         LoginArguments = "",
         LoginKind = LoginKind.GuidanceOnly,
-        LoginGuidance = "Guidance_Cursor", // localization key; resolve via Loc.Get at display time
+        LoginGuidance = "Guidance_Cursor",
     };
 
     /// <summary>Declaration order is the order tools are shown in the UI.</summary>

@@ -103,7 +103,6 @@ public sealed partial class UsageViewModel : ObservableObject
 
     private void RefreshCards(IReadOnlyList<CachedUsage> tools)
     {
-        // Remove cards for tools no longer present.
         for (var i = Cards.Count - 1; i >= 0; i--)
         {
             if (!tools.Any(t => t.ToolName == Cards[i].ToolName))

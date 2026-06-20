@@ -90,8 +90,8 @@ public sealed class CursorProvider : IUsageProvider
 
         var plan = MapPlan(root.GetStringOrNull("membershipType"));
         var percentUsed = ParsePlanPercentUsed(root);
-        // Parse via the shared extension (InvariantCulture + explicit style), never the
-        // ambient culture — the UI language now sets CurrentCulture, but this is API data.
+        // GetDateTimeOffsetOrNull parses with InvariantCulture, not CurrentCulture (set by
+        // the UI language): this is API data, so it must not depend on the ambient culture.
         var resetTime = root.GetDateTimeOffsetOrNull("billingCycleEnd");
 
         var window = new UsageWindow

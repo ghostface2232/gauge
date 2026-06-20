@@ -72,7 +72,7 @@ public sealed class CodexDelegatedRefreshTests
     [Fact]
     public async Task NoRefresherStillThrowsOnInvalidCredential()
     {
-        // Without a refresher (the optional dependency omitted) the old behavior holds.
+        // The refresher is optional: with none injected, an invalid credential fails outright.
         var source = new SequencedSource(Invalid());
         var provider = new CodexProvider(new HttpClient(new StubHandler(UsageJson)), source);
 

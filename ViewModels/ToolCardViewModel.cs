@@ -63,7 +63,6 @@ public sealed partial class ToolCardViewModel : ObservableObject
         HasAnyData = true;
         StatusText = string.Empty;
 
-        // Remove rows for windows no longer present.
         for (var i = Windows.Count - 1; i >= 0; i--)
         {
             if (!windows.Any(w => w.Type == Windows[i].Type))

@@ -22,8 +22,8 @@ namespace Gauge.Services;
 ///
 /// The icon is created without a visual tree (<see cref="TaskbarIcon.ForceCreate"/>)
 /// because Gauge has no visible window. Both the icon bitmap and the tooltip are
-/// updatable at runtime so a later step can recolor the icon by usage level and
-/// refresh the tooltip summary.
+/// updatable at runtime, so the icon can be recolored by usage level and the tooltip
+/// summary refreshed.
 ///
 /// Context menu uses <see cref="ContextMenuMode.SecondWindow"/> for the clean WinUI
 /// look. That mode hosts the menu in a separate window and hides it the instant the
@@ -87,7 +87,7 @@ public sealed class TrayIconService : IDisposable
     private readonly EventHandler _processExitHandler;
     private bool _disposed;
 
-    /// <summary>Raised on left-click. Next step wires this to the popover toggle.</summary>
+    /// <summary>Raised on left-click; wired to the popover toggle.</summary>
     public event EventHandler? LeftClicked;
 
     /// <summary>Context menu: "시작프로그램 등록" toggled. Argument is the new desired state.</summary>
@@ -166,10 +166,7 @@ public sealed class TrayIconService : IDisposable
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
     }
 
-    /// <summary>
-    /// Reflects the current desired start-on-boot state in the menu indicator.
-    /// Wiring to actual startup registration comes in a later step.
-    /// </summary>
+    /// <summary>Reflects the current desired start-on-boot state in the menu indicator.</summary>
     public void SetStartOnBootChecked(bool isChecked)
     {
         _startOnBoot = isChecked;
