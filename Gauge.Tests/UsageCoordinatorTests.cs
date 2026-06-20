@@ -155,6 +155,44 @@ public sealed class UsageCoordinatorTests
         Assert.False(persistence.SaveCalled);
     }
 
+    [Fact]
+    public async Task PurgingAToolRewritesCacheEvenWithNoSuccessfulProvider()
+    {
+        var persistence = new FakePersistence
+        {
+            Seed = new[]
+            {
+                Seed("Claude Code"),
+                Seed("Codex"),
+            },
+        };
+        var claude = new StubProvider("Claude Code") { Throw = true };
+        var codex = new StubProvider("Codex") { Throw = true };
+        var enabled = new HashSet<ToolKind> { ToolKind.ClaudeCode, ToolKind.Codex };
+        using var coordinator = new UsageCoordinator(
+            new UsageService(new IUsageProvider[] { claude, codex }, enabled.Contains), persistence: persistence);
+
+        // All providers fail and nothing was purged → the disk cache is left untouched.
+        await coordinator.RefreshAsync(RefreshReason.AuthenticationChanged);
+        Assert.False(persistence.SaveCalled);
+
+        // Remove a tool: even though the remaining provider still fails, the purge must be
+        // flushed to disk so the removed tool can't reappear on next launch.
+        enabled.Remove(ToolKind.Codex);
+        await coordinator.RefreshAsync(RefreshReason.ToolsChanged);
+
+        Assert.True(persistence.SaveCalled);
+        var saved = Assert.Single(persistence.Saved);
+        Assert.Equal("Claude Code", saved.ToolName);
+    }
+
+    private static UsageSnapshot Seed(string name) => new()
+    {
+        ToolName = name,
+        CapturedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+        Windows = new[] { new UsageWindow { Type = UsageWindowType.FiveHour, Label = "5h", UsedRatio = .3 } },
+    };
+
     private sealed class FakePersistence : IUsageCachePersistence
     {
         public IReadOnlyList<UsageSnapshot> Seed { get; set; } = Array.Empty<UsageSnapshot>();

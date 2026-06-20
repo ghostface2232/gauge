@@ -185,12 +185,14 @@ public sealed class UsageCoordinator : IDisposable
         {
             Interlocked.Exchange(ref _lastRefreshStartedTick, Environment.TickCount64);
             var results = await _usageService.GetAllSnapshotsAsync(cancellationToken);
-            MergeIntoCache(results);
+            var purgedTools = MergeIntoCache(results);
             ReportAuthenticationFailures(results);
             EmitState();
-            // Persist only when at least one tool refreshed successfully, so the on-disk
-            // last-known value is never overwritten by an all-failed cycle.
-            if (results.Any(r => r.Succeeded))
+            // Persist when at least one tool refreshed successfully, so an all-failed cycle
+            // never overwrites the on-disk last-known value. Also persist when a tool was
+            // purged (disabled/removed), even with no success, so the removed tool doesn't
+            // linger in the cache file and reappear on next launch via rehydration.
+            if (purgedTools || results.Any(r => r.Succeeded))
             {
                 PersistSuccessfulSnapshots();
             }
@@ -218,7 +220,8 @@ public sealed class UsageCoordinator : IDisposable
         }
     }
 
-    private void MergeIntoCache(IReadOnlyList<ProviderSnapshotResult> results)
+    /// <summary>Merges a refresh cycle's results into the cache; returns true if any stale tool was purged.</summary>
+    private bool MergeIntoCache(IReadOnlyList<ProviderSnapshotResult> results)
     {
         lock (_cacheLock)
         {
@@ -228,8 +231,9 @@ public sealed class UsageCoordinator : IDisposable
             // entry so it disappears from the UI. (Failed-but-enabled tools still appear
             // here as error results and are kept below.)
             var present = new HashSet<string>(results.Select(r => r.ToolName));
+            var staleKeys = _cache.Keys.Where(name => !present.Contains(name)).ToList();
             _toolOrder.RemoveAll(name => !present.Contains(name));
-            foreach (var stale in _cache.Keys.Where(name => !present.Contains(name)).ToList())
+            foreach (var stale in staleKeys)
             {
                 _cache.Remove(stale);
             }
@@ -259,6 +263,8 @@ public sealed class UsageCoordinator : IDisposable
                         LastRefreshFailed = true,
                     };
             }
+
+            return staleKeys.Count > 0;
         }
     }
 

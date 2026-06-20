@@ -57,16 +57,34 @@ public sealed class CliProcessRunner : ICliProcessRunner
     {
         // Hidden background run: no window, output redirected and discarded. The output
         // (e.g. `claude auth status`) may carry account info, so it is never logged.
-        using var process = Process.Start(new ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
-            FileName = executable,
-            Arguments = arguments,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             WindowStyle = ProcessWindowStyle.Hidden,
-        }) ?? throw new InvalidOperationException("CLI 프로세스를 시작할 수 없습니다.");
+        };
+
+        // A .cmd/.bat shim (e.g. npm's claude.cmd) is not a PE image, so it can't be
+        // started directly once UseShellExecute is false (which output redirection
+        // requires). Route those through cmd.exe. The /s + outer-quote form makes cmd
+        // strip exactly the wrapping quotes, so a quoted path with spaces stays intact.
+        var extension = Path.GetExtension(executable);
+        if (extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".bat", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "cmd.exe";
+            startInfo.Arguments = $"/d /s /c \"\"{executable}\" {arguments}\"";
+        }
+        else
+        {
+            startInfo.FileName = executable;
+            startInfo.Arguments = arguments;
+        }
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("CLI 프로세스를 시작할 수 없습니다.");
 
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);

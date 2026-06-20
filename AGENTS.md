@@ -54,12 +54,13 @@ Providers read each tool's **real** rate-limit usage from its official OAuth usa
 - Plan label: Claude maps credential fields `subscriptionType`+`rateLimitTier` (e.g. `max` + `…max_5x`/`…max_20x` → "Max 5x"/"Max 20x"), so it is available independently of a usage response. Codex maps response `plan_type` (plus/pro/…) and retains it through the coordinator's last-good snapshot on later failures.
 - Never assume the JSON schema from memory. Inspect a live response from the real endpoint first, then write parsing against that actual structure.
 - Why not ccusage: ccusage only counts tokens from local logs — it has no access to actual quotas or reset schedules. Its activity-based blocks, calendar-Monday weeks, and historical-max normalization do not match the real rate-limit windows, so the percentages and resets were wrong. It was removed.
-- No token refresh is implemented. On an expired token, the provider keeps showing the last good snapshot; the token stays fresh because the tool's own CLI rotates it on use.
+- Gauge never refreshes or rewrites credentials itself. After a reboot the Claude access token is often already expired (it lives only a few hours), so rather than wait for Claude Code to be launched, ClaudeProvider triggers a **delegated refresh**: it runs the CLI's own non-interactive `claude auth status` in the background so the *CLI* refreshes and rewrites its token, then re-reads it (see Authentication ownership). Rotation stays owned by the CLI, so this can never break its login. Other providers keep showing the last good snapshot until their CLI rotates the token on use.
 
 ### Authentication ownership
 
 - Initial OAuth login is delegated to each official CLI from the Gauge settings window: `claude /login` and `codex login` run as visible processes.
-- CLI-owned credentials remain read-only. Gauge never writes, refreshes, deletes, or logs these credentials or CLI login output.
+- CLI-owned credentials remain read-only **to Gauge**. Gauge never itself writes, refreshes, deletes, or logs these credentials or CLI login output, and never calls an OAuth token endpoint.
+- Refresh is *delegated*, not performed: to recover an expired token Gauge may invoke the CLI's own non-interactive command (`claude auth status`, run hidden by `ClaudeTokenRefresher` via `RunHiddenAsync`) so the CLI refreshes and rewrites its own credential file. Gauge then re-reads it. The CLI keeps sole ownership of the refresh-token rotation; Gauge only nudges and reads. The nudge is cooldown-gated so it never spawns the CLI on every poll, and its output (which carries account info) is drained and never logged.
 - Credential lookup is behind `ICredentialSource`; the fixed future priority is `GaugeManaged` then `CliLocal`. Only `CliLocal` is implemented in this version.
 - Any future Gauge-owned PKCE flow must use an app-owned secure store and take explicit ownership of token refresh. It must not write to or refresh CLI-owned credential files.
 
