@@ -28,6 +28,27 @@
             <SolidColorBrush x:Key="UsageOkBrush" Color="#2E9E4F" />
             <SolidColorBrush x:Key="UsageCautionBrush" Color="#FEAD0C" />
             <SolidColorBrush x:Key="UsageDangerBrush" Color="#FE140C" />
+
+            <!-- App font: bundled Pretendard JP (OFL 1.1), shipped under Assets/Fonts and
+                 loaded read-only at runtime. Every WinUI text style (Body/Caption/Subtitle/…)
+                 derives from BaseTextBlockStyle, which pulls FontFamily from
+                 ContentControlThemeFontFamily; overriding that one key restyles all text and
+                 controls in one shot. FontIcon uses SymbolThemeFontFamily, so glyphs are
+                 untouched. The two static weights we actually use (Regular 400, SemiBold 600)
+                 are separate files, so SemiBold text is pointed at the SemiBold file below to
+                 render a real weight rather than a synthesized one. -->
+            <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/PretendardJP-Regular.otf#Pretendard JP</FontFamily>
+            <FontFamily x:Key="AppFontSemiBold">ms-appx:///Assets/Fonts/PretendardJP-SemiBold.otf#Pretendard JP</FontFamily>
+
+            <Style x:Key="BodyStrongTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontFamily" Value="{StaticResource AppFontSemiBold}" />
+            </Style>
+            <Style x:Key="SubtitleTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource BaseTextBlockStyle}">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontFamily" Value="{StaticResource AppFontSemiBold}" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

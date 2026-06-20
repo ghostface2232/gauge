@@ -74,3 +74,5 @@ When an update is available, clicking **Update** downloads the installer and run
 ## Credits
 
 Gauge was inspired by [CodexBar](https://github.com/steipete/codexbar), the macOS menu bar app for tracking AI coding tool usage. Several design ideas — including reading the official CLIs' usage endpoints read-only and delegating token refresh back to the CLI — were learned from it.
+
+The UI is set in [Pretendard](https://github.com/orioncactus/pretendard) by Kil Hyung-jin, bundled with the app under the SIL Open Font License 1.1 (see `Assets/Fonts/OFL.txt`).
