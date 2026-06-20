@@ -14,7 +14,7 @@ AgentGauge is a Windows system-tray app that lets you check the real usage limit
 ## Features
 
 - Shows real usage for Claude Code, Codex, and Cursor.
-- Register the services you want with **+ Add service** in settings, and remove them from their card (default: Claude Code · Codex).
+- Register the services you want in settings, and remove them from their card (default: Claude Code · Codex).
 - Progress bars and the tray icon turn yellow above 70% and red above 90%.
 - Refreshes usage every 60 seconds, and immediately when you open the app from the tray.
 - Caps the popover height and scrolls internally when you add many tools.
