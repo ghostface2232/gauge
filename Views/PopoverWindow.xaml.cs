@@ -68,6 +68,8 @@ public sealed partial class PopoverWindow : Window
     private Storyboard? _viewTransitionStoryboard;
     private int _titleIconLoadId;
     private string? _titleIconKey;
+    private AutoHideScrollBar? _usageAutoHide;
+    private AutoHideScrollBar? _settingsAutoHide;
 
     /// <summary>Raised whenever the popover is actually shown (after the toggle guard).</summary>
     public event EventHandler? Opened;
@@ -111,6 +113,11 @@ public sealed partial class PopoverWindow : Window
         // Resize the window to match content height as it loads/changes (no filler).
         RootBorder.SizeChanged += OnContentSizeChanged;
         SettingsBorder.SizeChanged += OnContentSizeChanged;
+
+        // Scrollbars reveal while scrolling and hide ~1s after it stops, so they don't sit
+        // permanently over the cards' right edge.
+        _usageAutoHide = new AutoHideScrollBar(BodyScroll);
+        _settingsAutoHide = new AutoHideScrollBar(SettingsScroll);
 
         Activated += OnActivated;
 
@@ -188,6 +195,9 @@ public sealed partial class PopoverWindow : Window
         // Confirmed open (passed the toggle guard) — let listeners (e.g. the
         // coordinator's debounced forced refresh) react.
         Opened?.Invoke(this, EventArgs.Empty);
+
+        // Flash the scrollbar once content has settled, hinting the list scrolls, then auto-hide.
+        RootHost.DispatcherQueue.TryEnqueue(() => _usageAutoHide?.Reveal());
     }
 
     /// <summary>Binds the popover content to a view model for data display.</summary>
@@ -453,6 +463,7 @@ public sealed partial class PopoverWindow : Window
         AnimateViewTransition(
             RootBorder, SettingsBorder, UsageViewTransform, SettingsViewTransform, direction: 1);
         SettingsOpened?.Invoke(this, EventArgs.Empty);
+        RootHost.DispatcherQueue.TryEnqueue(() => _settingsAutoHide?.Reveal());
     }
 
     private void OnAddServiceClicked(object sender, RoutedEventArgs e)
@@ -610,6 +621,39 @@ public sealed partial class PopoverWindow : Window
         Storyboard.SetTarget(animation, target);
         Storyboard.SetTargetProperty(animation, property);
         return animation;
+    }
+
+    /// <summary>
+    /// Reveals a <see cref="ScrollViewer"/>'s vertical scrollbar while the view is changing and
+    /// hides it ~1s after scrolling stops. Driven by us rather than the system so the bar never
+    /// sits permanently over the cards, independent of the OS "always show scrollbars" setting.
+    /// </summary>
+    private sealed class AutoHideScrollBar
+    {
+        private static readonly TimeSpan HideDelay = TimeSpan.FromSeconds(1);
+
+        private readonly ScrollViewer _scroller;
+        private readonly DispatcherTimer _timer;
+
+        public AutoHideScrollBar(ScrollViewer scroller)
+        {
+            _scroller = scroller;
+            _scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            _timer = new DispatcherTimer { Interval = HideDelay };
+            _timer.Tick += (_, _) =>
+            {
+                _timer.Stop();
+                _scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            };
+            _scroller.ViewChanged += (_, _) => Reveal();
+        }
+
+        public void Reveal()
+        {
+            _scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            _timer.Stop();
+            _timer.Start();
+        }
     }
 
     private static class NativeMethods

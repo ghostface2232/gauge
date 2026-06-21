@@ -129,7 +129,8 @@ public sealed partial class ToolCardViewModel : ObservableObject
         _ => 9,
     };
 
-    // The group heading sits on the first row of each family; clear it on the others.
+    // The group heading sits on the first row of each family; clear it on the others. A divider
+    // is drawn above every group's first row except the first, separating adjacent families.
     private void AssignGroupHeaders(IReadOnlyList<UsageWindow> ordered)
     {
         var headed = new HashSet<string>();
@@ -140,9 +141,16 @@ public sealed partial class ToolCardViewModel : ObservableObject
                 continue;
             }
 
-            row.GroupHeader = window.GroupLabel is { Length: > 0 } group && headed.Add(group)
-                ? group
-                : string.Empty;
+            if (window.GroupLabel is { Length: > 0 } group && headed.Add(group))
+            {
+                row.GroupHeader = group;
+                row.ShowGroupDivider = headed.Count > 1;
+            }
+            else
+            {
+                row.GroupHeader = string.Empty;
+                row.ShowGroupDivider = false;
+            }
         }
     }
 }

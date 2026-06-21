@@ -238,6 +238,13 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Spacing="2" Margin="0,0,0,10">
+                                                        <!-- Separator between adjacent model
+                                                             families (e.g. Gemini | Claude/GPT). -->
+                                                        <Border
+                                                            Height="1"
+                                                            Margin="0,2,0,10"
+                                                            Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                            Visibility="{Binding ShowGroupDivider, Converter={StaticResource BoolToVis}}" />
                                                         <!-- Model-family heading (e.g. "Gemini",
                                                              "Claude/GPT"), shown once above the
                                                              first row of each group. -->
@@ -395,7 +402,7 @@
                      list grows to a scroll as more services are registered or on a short
                      window — VerticalScrollBarVisibility=Auto turns the scrollbar on only
                      when the content actually exceeds the (usage-matched) panel height. -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollMode="Disabled" Padding="16,0,16,0">
                 <StackPanel Spacing="14" VerticalAlignment="Top" Margin="0,0,0,12">
                     <!-- App-wide toggles, grouped in one card directly under the title:

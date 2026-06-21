@@ -37,6 +37,14 @@ public sealed partial class UsageWindowRowViewModel : ObservableObject
 
     public bool HasGroupHeader => !string.IsNullOrEmpty(GroupHeader);
 
+    /// <summary>
+    /// Whether a separator line is drawn above this row's group heading. Set on the first row of
+    /// every group except the first, so it sits between adjacent families (e.g. Gemini and
+    /// Claude/GPT) rather than above the top one.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool ShowGroupDivider { get; set; }
+
     /// <summary>0–100 for the progress bar.</summary>
     [ObservableProperty]
     public partial double Percent { get; set; }

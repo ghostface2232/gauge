@@ -29,6 +29,10 @@ public sealed class ToolCardViewModelTests
         Assert.Equal(
             new[] { true, false, true, false },
             card.Windows.Select(r => r.HasGroupHeader));
+        // The divider sits only between families — above Claude/GPT, never above the first group.
+        Assert.Equal(
+            new[] { false, false, true, false },
+            card.Windows.Select(r => r.ShowGroupDivider));
     }
 
     [Fact]
