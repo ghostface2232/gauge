@@ -17,9 +17,11 @@ public enum RefreshReason
 /// <summary>
 /// Drives usage refreshes and owns the cache.
 ///
-/// - A <see cref="PeriodicTimer"/> refreshes every 60s. Each cycle calls all
+/// - A <see cref="PeriodicTimer"/> refreshes every 3 minutes. Each cycle calls all
 ///   providers in parallel, isolated per provider (via <see cref="UsageService"/>),
-///   so one tool's failure never blocks another's update.
+///   so one tool's failure never blocks another's update. (Most providers self-throttle
+///   below this — e.g. Claude caches for 5 minutes — and the Antigravity delegate engine
+///   is spawned and torn down per read, so a slower cycle keeps that churn down.)
 /// - Opening the popover or requesting a manual refresh calls <see cref="RefreshAsync"/>,
 ///   debounced: if a
 ///   refresh ran within the last 10s we skip the data source and just re-emit the
@@ -35,7 +37,7 @@ public enum RefreshReason
 /// </summary>
 public sealed class UsageCoordinator : IDisposable
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan ForcedRefreshDebounce = TimeSpan.FromSeconds(10);
 
     private readonly UsageService _usageService;

@@ -9,13 +9,13 @@ namespace Gauge.Providers.Internal;
 /// disk, exactly like Claude/Codex delegated refresh, and Gauge never touches those credentials.
 ///
 /// The engine is launched suspended, placed under a <see cref="JobObject"/>, then resumed, so it
-/// and every sidecar it spawns belong to a job Gauge can tear down completely — and nothing
-/// Gauge did not start is ever at risk. The engine is kept warm and reused across refreshes
-/// (its quota cache lives inside that process, so re-spawning each cycle would force a slow cold
-/// start), and released after an idle period. All access is serialized so a single engine is
-/// shared safely across concurrent refreshes.
+/// and every sidecar it spawns belong to a job Gauge can tear down completely — nothing Gauge did
+/// not start is ever at risk. Each read spawns a fresh engine, takes one reading, and tears the
+/// whole tree back down: usage only changes while the IDE is in use (which is attach mode, not
+/// this path), so keeping a language server resident between refreshes would be cost for no
+/// benefit. All access is serialized so two refreshes never spawn competing engines.
 ///
-/// Returns null — never throws — for ordinary conditions: not installed, signed out, or a engine
+/// Returns null — never throws — for ordinary conditions: not installed, signed out, or an engine
 /// that failed to become ready. The caller falls back to its last good snapshot.
 /// </summary>
 internal sealed class AntigravityEngineHost : IDisposable
@@ -27,7 +27,6 @@ internal sealed class AntigravityEngineHost : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private AntigravityLoopbackClient? _client;
-    private Engine? _engine;
     private bool _disposed;
 
     public AntigravityEngineHost(string? installRoot = null)
@@ -36,8 +35,8 @@ internal sealed class AntigravityEngineHost : IDisposable
     }
 
     /// <summary>
-    /// Returns a usage reading from a Gauge-launched engine, reusing a warm one when possible,
-    /// or null if the engine is unavailable (not installed / not ready).
+    /// Spawns a Gauge-launched engine, returns one usage reading from it, then tears the engine
+    /// (and its sidecars) down again. Null if the engine is unavailable (not installed / not ready).
     /// </summary>
     public async Task<AntigravityReading?> GetReadingAsync(CancellationToken cancellationToken)
     {
@@ -55,32 +54,7 @@ internal sealed class AntigravityEngineHost : IDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (_disposed)
-            {
-                return null;
-            }
-
-            // Reuse a warm engine. If it has wedged, tear it down and spawn a fresh one once.
-            if (_engine is { IsAlive: true } warm)
-            {
-                if (await TryFetchAsync(warm, cancellationToken) is { } reused)
-                {
-                    warm.Touch();
-                    return reused;
-                }
-
-                DisposeEngine();
-            }
-
-            var spawn = await SpawnAndWaitReadyAsync(enginePath, cancellationToken);
-            if (spawn is not { } ready)
-            {
-                return null;
-            }
-
-            _engine = ready.Engine;
-            ready.Engine.Touch();
-            return ready.Reading;
+            return _disposed ? null : await SpawnReadAndTeardownAsync(enginePath, cancellationToken);
         }
         finally
         {
@@ -88,29 +62,7 @@ internal sealed class AntigravityEngineHost : IDisposable
         }
     }
 
-    /// <summary>Tears down the warm engine if it has been unused for longer than <paramref name="maxIdle"/>.</summary>
-    public void ReleaseIfIdle(TimeSpan maxIdle)
-    {
-        // Don't block a refresh in progress: if the gate is held, the engine is in use, not idle.
-        if (!_gate.Wait(0))
-        {
-            return;
-        }
-
-        try
-        {
-            if (_engine is { } engine && DateTime.UtcNow - engine.LastUsedUtc > maxIdle)
-            {
-                DisposeEngine();
-            }
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    private async Task<ReadyEngine?> SpawnAndWaitReadyAsync(string enginePath, CancellationToken cancellationToken)
+    private async Task<AntigravityReading?> SpawnReadAndTeardownAsync(string enginePath, CancellationToken cancellationToken)
     {
         var token = Guid.NewGuid().ToString();
         var arguments = AntigravityEngineLaunch.BuildArguments(token, AntigravityInstall.ResolveIdeVersion(_installRoot!));
@@ -144,9 +96,7 @@ internal sealed class AntigravityEngineHost : IDisposable
                 if (ports.Count > 0
                     && await client.FetchReadingAsync(ports, token, cancellationToken) is { } reading)
                 {
-                    var engine = new Engine(process, job, token, ports);
-                    (process, job) = (null, null); // ownership transferred to the engine
-                    return new ReadyEngine(engine, reading);
+                    return reading;
                 }
 
                 await Task.Delay(PollInterval, cancellationToken);
@@ -161,36 +111,19 @@ internal sealed class AntigravityEngineHost : IDisposable
         }
         finally
         {
-            // Reached unless ownership was transferred to a returned Engine: close the job (which
-            // kills the tree) and release/terminate the process.
+            // Always tear the tree down: closing the job triggers KILL_ON_JOB_CLOSE for the engine
+            // and its sidecars, then the process handle is released. There is no warm engine to keep.
             job?.Dispose();
             process?.Dispose();
         }
     }
 
-    private async Task<AntigravityReading?> TryFetchAsync(Engine engine, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await Client().FetchReadingAsync(engine.Ports, engine.Token, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Debug.WriteLine($"[Gauge] Antigravity delegate fetch failed: {ex.GetType().Name}");
-            return null;
-        }
-    }
-
     private AntigravityLoopbackClient Client() => _client ??= new AntigravityLoopbackClient();
-
-    private void DisposeEngine()
-    {
-        _engine?.Dispose();
-        _engine = null;
-    }
 
     public void Dispose()
     {
+        // Wait out any in-flight read so its job/process teardown completes before we drop the
+        // client. The coordinator cancels first on shutdown, so a cold start unwinds promptly.
         _gate.Wait();
         try
         {
@@ -200,45 +133,12 @@ internal sealed class AntigravityEngineHost : IDisposable
             }
 
             _disposed = true;
-            DisposeEngine();
             _client?.Dispose();
         }
         finally
         {
             _gate.Release();
             _gate.Dispose();
-        }
-    }
-
-    private readonly record struct ReadyEngine(Engine Engine, AntigravityReading Reading);
-
-    private sealed class Engine : IDisposable
-    {
-        private readonly SuspendedProcess _process;
-        private readonly JobObject _job;
-
-        public Engine(SuspendedProcess process, JobObject job, string token, IReadOnlyList<int> ports)
-        {
-            _process = process;
-            _job = job;
-            Token = token;
-            Ports = ports;
-            LastUsedUtc = DateTime.UtcNow;
-        }
-
-        public string Token { get; }
-        public IReadOnlyList<int> Ports { get; }
-        public DateTime LastUsedUtc { get; private set; }
-        public bool IsAlive => _process.IsAlive;
-
-        public void Touch() => LastUsedUtc = DateTime.UtcNow;
-
-        public void Dispose()
-        {
-            // Close the job first so KILL_ON_JOB_CLOSE terminates the engine and its sidecars,
-            // then release our process handle.
-            _job.Dispose();
-            _process.Dispose();
         }
     }
 }
