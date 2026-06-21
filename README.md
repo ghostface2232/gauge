@@ -1,14 +1,15 @@
-<img width="1440" alt="agentgauge_banner" src="https://github.com/user-attachments/assets/b6d6a7df-ca9b-4ed9-8a7a-bf22d8730c9e" />
+<img width="1440" alt="banner" src="https://github.com/user-attachments/assets/a2b65902-84d4-45af-8be3-47ce5b294727" />
+
 
 # AgentGauge
 
 AgentGauge is a Windows system-tray app that lets you check the real usage limits of Claude Code, Codex, Cursor, and Antigravity at a glance.
 
+## Screenshots
 
-## Screenshot
-
-<img width="1440" alt="agentgauge_img1" src="https://github.com/user-attachments/assets/e349d33f-9bc4-4b69-ab2a-340bc01d1bd6" />
-<img width="1440" alt="agentgauge_img2" src="https://github.com/user-attachments/assets/cd691d04-cc4b-4caf-95a3-efc620ad6f6b" />
+<img width="1440" alt="1" src="https://github.com/user-attachments/assets/6497ec23-dea7-4b78-a054-69c58b9c7be3" />
+<img width="1440" alt="2" src="https://github.com/user-attachments/assets/6e83ea37-2855-4c00-90e8-3e18f6a047a4" />
+<img width="1440" alt="3" src="https://github.com/user-attachments/assets/4a30e33e-f116-45e8-b85f-e8947fdf6cda" />
 
 
 ## Features
