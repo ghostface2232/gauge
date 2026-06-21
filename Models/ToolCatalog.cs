@@ -75,8 +75,20 @@ public static class ToolCatalog
         LoginGuidance = "Guidance_Cursor",
     };
 
+    public static readonly ToolDescriptor Antigravity = new()
+    {
+        Kind = ToolKind.Antigravity,
+        DisplayName = "Antigravity",
+        // No CLI login: the user signs into the Antigravity IDE; Gauge reads quota from its
+        // local language server. The card's sign-in guidance text is wired up with the rest of
+        // the settings UX.
+        LoginCommand = "",
+        LoginArguments = "",
+        LoginKind = LoginKind.GuidanceOnly,
+    };
+
     /// <summary>Declaration order is the order tools are shown in the UI.</summary>
-    public static readonly IReadOnlyList<ToolDescriptor> All = new[] { ClaudeCode, Codex, Cursor };
+    public static readonly IReadOnlyList<ToolDescriptor> All = new[] { ClaudeCode, Codex, Cursor, Antigravity };
 
     private static readonly IReadOnlyDictionary<ToolKind, ToolDescriptor> ByKind =
         All.ToDictionary(descriptor => descriptor.Kind);

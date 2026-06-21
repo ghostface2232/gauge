@@ -36,10 +36,10 @@ internal sealed class AntigravityEngineHost : IDisposable
     }
 
     /// <summary>
-    /// Returns the raw quota JSON from a Gauge-launched engine, reusing a warm one when possible,
+    /// Returns a usage reading from a Gauge-launched engine, reusing a warm one when possible,
     /// or null if the engine is unavailable (not installed / not ready).
     /// </summary>
-    public async Task<string?> GetQuotaJsonAsync(CancellationToken cancellationToken)
+    public async Task<AntigravityReading?> GetReadingAsync(CancellationToken cancellationToken)
     {
         if (_installRoot is null)
         {
@@ -80,7 +80,7 @@ internal sealed class AntigravityEngineHost : IDisposable
 
             _engine = ready.Engine;
             ready.Engine.Touch();
-            return ready.QuotaJson;
+            return ready.Reading;
         }
         finally
         {
@@ -142,11 +142,11 @@ internal sealed class AntigravityEngineHost : IDisposable
                 // ports before it can actually answer.
                 var ports = WindowsListeningPortTable.LoopbackListeningPorts(process.ProcessId);
                 if (ports.Count > 0
-                    && await client.FetchQuotaJsonAsync(ports, token, cancellationToken) is { } json)
+                    && await client.FetchReadingAsync(ports, token, cancellationToken) is { } reading)
                 {
                     var engine = new Engine(process, job, token, ports);
                     (process, job) = (null, null); // ownership transferred to the engine
-                    return new ReadyEngine(engine, json);
+                    return new ReadyEngine(engine, reading);
                 }
 
                 await Task.Delay(PollInterval, cancellationToken);
@@ -168,11 +168,11 @@ internal sealed class AntigravityEngineHost : IDisposable
         }
     }
 
-    private async Task<string?> TryFetchAsync(Engine engine, CancellationToken cancellationToken)
+    private async Task<AntigravityReading?> TryFetchAsync(Engine engine, CancellationToken cancellationToken)
     {
         try
         {
-            return await Client().FetchQuotaJsonAsync(engine.Ports, engine.Token, cancellationToken);
+            return await Client().FetchReadingAsync(engine.Ports, engine.Token, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -210,7 +210,7 @@ internal sealed class AntigravityEngineHost : IDisposable
         }
     }
 
-    private readonly record struct ReadyEngine(Engine Engine, string QuotaJson);
+    private readonly record struct ReadyEngine(Engine Engine, AntigravityReading Reading);
 
     private sealed class Engine : IDisposable
     {

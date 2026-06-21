@@ -5,9 +5,9 @@ public enum ToolKind
     ClaudeCode,
     Codex,
     Cursor,
-    // Antigravity is intentionally not shipped yet: its rich 5h/weekly quota data is
-    // only available via the running app's local gRPC server, and the headless OAuth
-    // path is incomplete. The architecture stays ready to add it back later.
+    // Antigravity reads its rich 5h/weekly quota from the IDE's local language server
+    // (attach), or from an engine Gauge launches itself when the IDE is closed (delegate).
+    Antigravity,
 }
 
 public enum CredentialOwner

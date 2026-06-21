@@ -56,19 +56,21 @@ internal sealed class AntigravityLoopbackClient : IDisposable
     }
 
     /// <summary>
-    /// Returns the raw quota JSON from the first loopback port that speaks HTTPS+Connect, or null
-    /// if none yields a 200. The plaintext HTTP port fails the TLS handshake and is skipped.
+    /// Returns the quota (and best-effort plan) from the first loopback port that speaks
+    /// HTTPS+Connect, or null if none yields a 200. The plaintext HTTP port fails the TLS
+    /// handshake and is skipped. The plan comes from a second call that never fails the read.
     /// </summary>
-    public async Task<string?> FetchQuotaJsonAsync(
+    public async Task<AntigravityReading?> FetchReadingAsync(
         IReadOnlyList<int> ports, string csrfToken, CancellationToken cancellationToken)
     {
         foreach (var port in ports)
         {
             try
             {
-                if (await QueryQuotaAsync(port, csrfToken, cancellationToken) is { } json)
+                if (await QueryQuotaAsync(port, csrfToken, cancellationToken) is { } quota)
                 {
-                    return json;
+                    var plan = await TryGetPlanAsync(port, csrfToken, cancellationToken);
+                    return new AntigravityReading(quota, plan);
                 }
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException)
@@ -79,6 +81,21 @@ internal sealed class AntigravityLoopbackClient : IDisposable
         }
 
         return null;
+    }
+
+    private async Task<string?> TryGetPlanAsync(int port, string csrfToken, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await PostAsync(port, "GetUserStatus", "{}", csrfToken, cancellationToken);
+            return response.StatusCode == HttpStatusCode.OK
+                ? AntigravityUserStatus.ParsePlan(response.Body)
+                : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            return null; // The plan is a best-effort label; never fail the read because of it.
+        }
     }
 
     private async Task<string?> QueryQuotaAsync(int port, string csrfToken, CancellationToken cancellationToken)
