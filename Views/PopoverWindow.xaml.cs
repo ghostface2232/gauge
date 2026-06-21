@@ -38,6 +38,11 @@ public sealed partial class PopoverWindow : Window
     // Reserve for the title header + footer + paddings when capping the scrollable
     // body so the whole popover stays within the work area on very tall content.
     private const double FooterChromeAllowanceDip = 148;
+    // Bottom inset added below the last card when the body does NOT scroll, so the gap
+    // above the footer matches the header's 8dip bottom padding (Padding="16,16,16,8").
+    // When the body overflows and scrolls, no inset is added: content stays flush to the
+    // footer divider and scrolls out of sight beneath it.
+    private const double BodyBottomBreathingRoomDip = 8;
 
     // --- Slide-in animation (tunable) ---
     private const double SlideOffsetY = 24;       // start offset below final position
@@ -574,7 +579,19 @@ public sealed partial class PopoverWindow : Window
     private void MeasureAndStoreUsageHeight()
     {
         RootBorder.Measure(new Size(PopoverWidthDip, double.PositiveInfinity));
-        _usageViewHeightDip = RootBorder.DesiredSize.Height;
+        var height = RootBorder.DesiredSize.Height;
+
+        // BodyScroll's DesiredSize is clamped to its MaxHeight, so reaching the cap means
+        // the cards overflow and scroll — keep them flush to the footer divider. Otherwise
+        // the cards fit, so add a bottom inset matching the header's bottom padding so the
+        // gap below the last card mirrors the gap above the first.
+        var bodyScrolls = BodyScroll.DesiredSize.Height >= BodyScroll.MaxHeight - 0.5;
+        if (!bodyScrolls)
+        {
+            height += BodyBottomBreathingRoomDip;
+        }
+
+        _usageViewHeightDip = height;
         _usageLayoutRefreshPending = false;
     }
 
