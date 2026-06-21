@@ -19,6 +19,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
+    <!-- The test project lives in the Gauge.Tests subfolder. Exclude that whole
+         subtree from this project's default item globs (Compile/Content/None/Page/
+         PRIResource/...) so its build output is never pulled into — and recursively
+         nested under — Gauge's own output. Supersedes per-item Remove guards. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Gauge.Tests\**</DefaultItemExcludes>
+
     <!-- Unpackaged (win32) deployment, no MSIX. -->
     <WindowsPackageType>None</WindowsPackageType>
     <EnableMsixTooling>false</EnableMsixTooling>
@@ -56,8 +62,6 @@
        runtime in the unpackaged app (no ms-appx resource pri to rely on). -->
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
-    <Compile Remove="Gauge.Tests\**\*.cs" />
-    <None Remove="Gauge.Tests\**" />
   </ItemGroup>
 
   <!-- Unpackaged WinUI `dotnet publish` drops the app's merged resources index
