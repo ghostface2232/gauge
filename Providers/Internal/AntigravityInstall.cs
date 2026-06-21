@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Gauge.Providers.Internal;
 
 /// <summary>
@@ -5,7 +7,8 @@ namespace Gauge.Providers.Internal;
 /// <c>%LOCALAPPDATA%\Programs\Antigravity</c>; its language server lives at
 /// <c>resources\bin\language_server.exe</c> beneath that root. The root is used to confirm a
 /// candidate <c>language_server*.exe</c> actually belongs to Antigravity rather than an
-/// unrelated process that happens to share the name.
+/// unrelated process that happens to share the name, and to launch the engine directly in
+/// delegate mode when the IDE is closed.
 /// </summary>
 internal static class AntigravityInstall
 {
@@ -20,5 +23,44 @@ internal static class AntigravityInstall
 
         var root = Path.Combine(localAppData, "Programs", "Antigravity");
         return Directory.Exists(root) ? root : null;
+    }
+
+    /// <summary>The standalone language server Gauge launches in delegate mode.</summary>
+    public static string EngineExecutablePath(string installRoot)
+        => Path.Combine(installRoot, "resources", "bin", "language_server.exe");
+
+    /// <summary>
+    /// The IDE version to pass as <c>--override_ide_version</c>, read from Antigravity.exe so it
+    /// tracks updates instead of being hard-coded. Null if it cannot be read (the override is
+    /// then simply omitted). Note this is the IDE version (e.g. 2.1.4), not the base VS Code
+    /// version in product.json.
+    /// </summary>
+    public static string? ResolveIdeVersion(string installRoot)
+    {
+        try
+        {
+            var exe = Path.Combine(installRoot, "Antigravity.exe");
+            return File.Exists(exe)
+                ? NormalizeIdeVersion(FileVersionInfo.GetVersionInfo(exe).ProductVersion)
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    // FileVersionInfo reports a 4-part version (e.g. "2.1.4.0"); the IDE passes the 3-part form
+    // ("2.1.4"). Drop a trailing ".0" fourth segment, otherwise pass the value through.
+    internal static string? NormalizeIdeVersion(string? productVersion)
+    {
+        if (string.IsNullOrWhiteSpace(productVersion))
+        {
+            return null;
+        }
+
+        var trimmed = productVersion.Trim();
+        var parts = trimmed.Split('.');
+        return parts.Length == 4 && parts[3] == "0" ? string.Join('.', parts[..3]) : trimmed;
     }
 }
