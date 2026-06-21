@@ -28,6 +28,10 @@ internal static class Strings
         ["Settings_NotificationsDesc"] = ["한도 도달·초기화 시 알림", "Alert on limit reached and reset", "上限到達・リセット時に通知"],
         ["Settings_StartOnBoot"]   = ["시작프로그램 등록", "Start on boot",   "スタートアップに登録"],
         ["Settings_StartOnBootDesc"] = ["Windows 시작 시 자동 실행", "Launch automatically when Windows starts", "Windows起動時に自動実行"],
+        ["Settings_ViewMode"]      = ["보기 방식",        "View mode",         "表示方式"],
+        ["Settings_ViewModeDesc"]  = ["사용량 표시 방식 선택", "How usage is displayed", "使用量の表示方法を選択"],
+        ["ViewMode_Bar"]          = ["바 모드",          "Bar",               "バー"],
+        ["ViewMode_Gauge"]        = ["게이지 모드",       "Gauge",             "ゲージ"],
         ["Tray_StartOnBoot"]  = ["시작프로그램 등록",   "Start on boot",     "スタートアップに登録"],
         ["Tray_Exit"]         = ["종료",             "Exit",              "終了"],
 

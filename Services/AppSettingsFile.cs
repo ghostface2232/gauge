@@ -15,6 +15,9 @@ internal sealed class AppSettingsDto
     /// <summary>Whether usage notifications are shown. Null (absent) reads as enabled.</summary>
     public bool? NotificationsEnabled { get; set; }
 
+    /// <summary>Card view mode ("bar" / "gauge"). Null (absent) reads as the bar layout.</summary>
+    public string? ViewMode { get; set; }
+
     /// <summary>
     /// Any properties not modelled above — keys written by a newer build, or settings this
     /// build doesn't know about. Captured on load and written back verbatim so a

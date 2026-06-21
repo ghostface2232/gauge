@@ -26,6 +26,23 @@ public sealed partial class UsageViewModel : ObservableObject
     /// <summary>One card per tool.</summary>
     public ObservableCollection<ToolCardViewModel> Cards { get; } = new();
 
+    /// <summary>
+    /// App-wide card layout (bar vs gauge). Owned here so newly added cards inherit it and
+    /// <see cref="SetViewMode"/> can flip every card at once. Not bound directly by the UI —
+    /// each card exposes its own bar/gauge visibility off this.
+    /// </summary>
+    public UsageViewMode ViewMode { get; private set; }
+
+    /// <summary>Switches every card to the given layout (called from the settings dropdown).</summary>
+    public void SetViewMode(UsageViewMode mode)
+    {
+        ViewMode = mode;
+        foreach (var card in Cards)
+        {
+            card.ViewMode = mode;
+        }
+    }
+
     /// <summary>Manual refresh button; the app routes this through the debounced coordinator.</summary>
     public IRelayCommand RefreshCommand { get; }
 
@@ -118,7 +135,7 @@ public sealed partial class UsageViewModel : ObservableObject
             var existing = Cards.FirstOrDefault(c => c.ToolName == tool.ToolName);
             if (existing is null)
             {
-                Cards.Insert(Math.Min(index, Cards.Count), new ToolCardViewModel(tool));
+                Cards.Insert(Math.Min(index, Cards.Count), new ToolCardViewModel(tool) { ViewMode = ViewMode });
             }
             else
             {

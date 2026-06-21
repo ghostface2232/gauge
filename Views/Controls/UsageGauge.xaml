@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Gauge.Views.Controls.UsageGauge"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    SizeChanged="OnSizeChanged">
+
+    <!-- A 270° ring opening at the bottom: a full-sweep track underneath and a colored
+         fill arc sized by Percent. Both arcs share round caps so the fill end reads as a
+         soft dot. The center is left empty — the caller overlays the number/% on top. The
+         arc geometry is rebuilt in code on size or percent change (RebuildArcs). -->
+    <Grid x:Name="LayoutRoot">
+        <Path x:Name="TrackPath"
+              StrokeThickness="7"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round"
+              Stroke="{ThemeResource ControlAltFillColorTertiaryBrush}" />
+        <Path x:Name="FillPath"
+              StrokeThickness="7"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round" />
+    </Grid>
+</UserControl>

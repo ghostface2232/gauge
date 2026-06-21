@@ -28,6 +28,7 @@ public partial class App : Application
     private ToolRegistry? _toolRegistry;
     private StartupService? _startupService;
     private NotificationSettingsStore? _notificationSettingsStore;
+    private ViewModeSettingsStore? _viewModeSettingsStore;
     private UpdateService? _updateService;
     private HttpClient? _httpClient;
     private AntigravityProvider? _antigravityProvider;
@@ -122,9 +123,12 @@ public partial class App : Application
         _notificationSettingsStore = new NotificationSettingsStore();
         var notificationsEnabled = _notificationSettingsStore.Load();
         _trayIcon.SetNotificationsChecked(notificationsEnabled);
-        var globalSettings = new GlobalSettingsViewModel(notificationsEnabled, _startupService.IsEnabled());
+        _viewModeSettingsStore = new ViewModeSettingsStore();
+        var viewMode = _viewModeSettingsStore.Load();
+        var globalSettings = new GlobalSettingsViewModel(notificationsEnabled, _startupService.IsEnabled(), viewMode);
         globalSettings.NotificationsToggleRequested += OnGlobalNotificationsToggled;
         globalSettings.StartOnBootToggleRequested += OnGlobalStartOnBootToggled;
+        globalSettings.ViewModeChangeRequested += OnGlobalViewModeChanged;
 
         _updateService = new UpdateService();
         _settingsViewModel = new SettingsViewModel(_toolRegistry, _authentication, _updateService, globalSettings);
@@ -137,6 +141,7 @@ public partial class App : Application
         _ = _settingsViewModel.Update.CheckInBackgroundAsync();
 
         _viewModel = new UsageViewModel();
+        _viewModel.SetViewMode(viewMode);
         _viewModel.RefreshRequested += OnManualRefreshRequested;
         _popover.BindViewModel(_viewModel);
 
@@ -250,6 +255,15 @@ public partial class App : Application
     {
         _notificationSettingsStore?.Save(enabled);
         _notificationService?.SetEnabled(enabled);
+    }
+
+    private void OnGlobalViewModeChanged(object? sender, UsageViewMode mode)
+    {
+        _viewModeSettingsStore?.Save(mode);
+        _viewModel?.SetViewMode(mode);
+        // Bar and gauge cards differ in height; re-measure so the popover resizes to fit
+        // (a no-op while the settings view is up — returning to usage re-measures anyway).
+        _popover?.RefreshUsageLayout();
     }
 
     private void OnGlobalStartOnBootToggled(object? sender, bool enabled)

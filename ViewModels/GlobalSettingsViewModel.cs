@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Gauge.Localization;
+using Gauge.Models;
 
 namespace Gauge.ViewModels;
 
@@ -16,8 +18,13 @@ public sealed partial class GlobalSettingsViewModel : ObservableObject
 {
     private bool _suspendSideEffects;
 
-    public GlobalSettingsViewModel(bool notificationsEnabled, bool startOnBoot)
-        => SyncFromSystem(notificationsEnabled, startOnBoot);
+    public GlobalSettingsViewModel(bool notificationsEnabled, bool startOnBoot, UsageViewMode viewMode)
+    {
+        SyncFromSystem(notificationsEnabled, startOnBoot);
+        _suspendSideEffects = true;
+        ViewModeIndex = (int)viewMode;
+        _suspendSideEffects = false;
+    }
 
     /// <summary>Raised when the user flips the notifications toggle (not on a programmatic sync).</summary>
     public event EventHandler<bool>? NotificationsToggleRequested;
@@ -25,8 +32,27 @@ public sealed partial class GlobalSettingsViewModel : ObservableObject
     /// <summary>Raised when the user flips the start-on-boot toggle (not on a programmatic sync).</summary>
     public event EventHandler<bool>? StartOnBootToggleRequested;
 
+    /// <summary>Raised when the user picks a different card view mode (not on a programmatic sync).</summary>
+    public event EventHandler<UsageViewMode>? ViewModeChangeRequested;
+
     [ObservableProperty] public partial bool NotificationsEnabled { get; set; }
     [ObservableProperty] public partial bool StartOnBoot { get; set; }
+
+    /// <summary>
+    /// Selected card view mode as a ComboBox index — 0 = Bar, 1 = Gauge — matching
+    /// <see cref="ViewModeOptions"/> and the <see cref="UsageViewMode"/> enum's values.
+    /// </summary>
+    [ObservableProperty] public partial int ViewModeIndex { get; set; }
+
+    /// <summary>Localized labels for the view-mode dropdown, in <see cref="UsageViewMode"/> order.</summary>
+    public IReadOnlyList<string> ViewModeOptions { get; } =
+        [Loc.Get("ViewMode_Bar"), Loc.Get("ViewMode_Gauge")];
+
+    partial void OnViewModeIndexChanged(int value)
+    {
+        if (_suspendSideEffects) return;
+        ViewModeChangeRequested?.Invoke(this, value == (int)UsageViewMode.Gauge ? UsageViewMode.Gauge : UsageViewMode.Bar);
+    }
 
     partial void OnNotificationsEnabledChanged(bool value)
     {

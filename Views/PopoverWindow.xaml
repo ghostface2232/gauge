@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:conv="using:Gauge.Converters"
+    xmlns:ctrl="using:Gauge.Views.Controls"
     xmlns:loc="using:Gauge.Localization"
     mc:Ignorable="d">
 
@@ -198,14 +199,18 @@
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollMode="Disabled"
                     Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-                    <!-- Bottom margin scrolls with the content. Together with the last
-                         card's 8dip margin and the 4dip window-height safety allowance
-                         absorbed by this row, it matches the 16dip top spacing. -->
-                    <ItemsControl ItemsSource="{Binding Cards}" Margin="0,0,0,4">
+                    <!-- Inter-card spacing lives on the panel (not a per-card bottom margin)
+                         so the last card carries no trailing margin: scrolled content clips
+                         flush under the footer instead of leaving a thin band above it. -->
+                    <ItemsControl ItemsSource="{Binding Cards}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border
-                                    Margin="0,0,0,8"
                                     Padding="14,14,14,8"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -231,10 +236,15 @@
                                                 Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" />
                                         </StackPanel>
 
-                                        <!-- One row per window the tool has (5시간 / 주간). -->
+                                        <!-- The tool's windows, rendered as bars or gauges per the
+                                             app-wide view mode. Both share the same Windows source;
+                                             exactly one is visible (IsBarMode / IsGaugeMode), and the
+                                             whole block is shown only when the tool has data. -->
+                                        <Grid Visibility="{Binding HasAnyData, Converter={StaticResource BoolToVis}}">
+                                        <!-- Bar layout: one stacked row per window (5시간 / 주간). -->
                                         <ItemsControl
                                             ItemsSource="{Binding Windows}"
-                                            Visibility="{Binding HasAnyData, Converter={StaticResource BoolToVis}}">
+                                            Visibility="{Binding IsBarMode, Converter={StaticResource BoolToVis}}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Spacing="2" Margin="0,0,0,10">
@@ -306,6 +316,84 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
+
+                                        <!-- Gauge layout: gauges grouped into family rows with a
+                                             divider between families (Gemini | Claude/GPT), mirroring
+                                             the bar layout. Ungrouped tools render as one row. Each
+                                             row is a 2-up grid that wraps for >2 windows. -->
+                                        <ItemsControl
+                                            ItemsSource="{Binding GaugeGroups}"
+                                            Visibility="{Binding IsGaugeMode, Converter={StaticResource BoolToVis}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel>
+                                                        <!-- Separator between adjacent model families. -->
+                                                        <Border
+                                                            Height="1"
+                                                            Margin="0,2,0,8"
+                                                            Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                            Visibility="{Binding ShowDivider, Converter={StaticResource BoolToVis}}" />
+                                                        <ItemsRepeater ItemsSource="{Binding Rows}">
+                                                            <ItemsRepeater.Layout>
+                                                                <UniformGridLayout MinItemWidth="130" MinColumnSpacing="8"
+                                                                                   MinRowSpacing="6" ItemsStretch="Fill" />
+                                                            </ItemsRepeater.Layout>
+                                                            <ItemsRepeater.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <StackPanel HorizontalAlignment="Center" Spacing="3" Margin="0,2,0,8">
+                                                                        <!-- Model-family name (grouped tools only). -->
+                                                                        <TextBlock
+                                                                            HorizontalAlignment="Center"
+                                                                            Opacity="0.9"
+                                                                            FontSize="12"
+                                                                            Text="{Binding FamilyLabel}"
+                                                                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                                            Visibility="{Binding HasFamilyLabel, Converter={StaticResource BoolToVis}}" />
+                                                                        <!-- Window label (5시간 / 주간). -->
+                                                                        <TextBlock
+                                                                            HorizontalAlignment="Center"
+                                                                            Opacity="0.75"
+                                                                            FontSize="13"
+                                                                            Text="{Binding Label}"
+                                                                            Style="{StaticResource CaptionTextBlockStyle}" />
+                                                                        <!-- Ring with the percent number/% stacked over its center. -->
+                                                                        <Grid Width="90" Height="90" HorizontalAlignment="Center">
+                                                                            <ctrl:UsageGauge
+                                                                                Percent="{Binding Percent}"
+                                                                                FillBrush="{Binding Level, Converter={StaticResource LevelToBrush}}" />
+                                                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                                                <TextBlock
+                                                                                    HorizontalAlignment="Center"
+                                                                                    FontSize="26"
+                                                                                    LineHeight="29"
+                                                                                    Text="{Binding PercentNumber}"
+                                                                                    Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                                                <TextBlock
+                                                                                    HorizontalAlignment="Center"
+                                                                                    Margin="0,-2,0,0"
+                                                                                    Opacity="0.6"
+                                                                                    FontSize="11"
+                                                                                    Text="%"
+                                                                                    Style="{StaticResource CaptionTextBlockStyle}" />
+                                                                            </StackPanel>
+                                                                        </Grid>
+                                                                        <!-- Reset countdown. -->
+                                                                        <TextBlock
+                                                                            HorizontalAlignment="Center"
+                                                                            TextAlignment="Center"
+                                                                            TextWrapping="Wrap"
+                                                                            Opacity="0.7"
+                                                                            Text="{Binding ResetText}"
+                                                                            Style="{StaticResource CaptionTextBlockStyle}" />
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ItemsRepeater.ItemTemplate>
+                                                        </ItemsRepeater>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        </Grid>
 
                                         <!-- No windows for this tool at all. -->
                                         <TextBlock
@@ -447,6 +535,26 @@
                                 <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
                                               MinWidth="0" OnContent="" OffContent=""
                                               IsOn="{Binding Global.StartOnBoot, Mode=TwoWay}" />
+                            </Grid>
+                            <Border Height="1" Margin="0,2"
+                                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                            <!-- View mode: a dropdown (not a toggle) since there are named
+                                 choices — bar vs gauge — rather than an on/off state. -->
+                            <Grid MinHeight="48" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="{loc:Localize Key=Settings_ViewMode}"
+                                               Style="{StaticResource BodyTextBlockStyle}" />
+                                    <TextBlock Text="{loc:Localize Key=Settings_ViewModeDesc}"
+                                               Opacity="0.6" TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Center" MinWidth="120"
+                                          ItemsSource="{Binding Global.ViewModeOptions}"
+                                          SelectedIndex="{Binding Global.ViewModeIndex, Mode=TwoWay}" />
                             </Grid>
                         </StackPanel>
                     </Border>

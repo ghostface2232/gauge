@@ -14,8 +14,10 @@ public sealed partial class UsageWindowRowViewModel : ObservableObject
     {
         Key = window.Key;
         Label = window.Label;
+        FamilyLabel = window.GroupLabel ?? string.Empty;
         GroupHeader = string.Empty;
         PercentText = string.Empty;
+        PercentNumber = string.Empty;
         ResetText = string.Empty;
         Update(window);
     }
@@ -25,6 +27,17 @@ public sealed partial class UsageWindowRowViewModel : ObservableObject
 
     /// <summary>Window label (e.g. "5시간", "주간").</summary>
     public string Label { get; }
+
+    /// <summary>
+    /// Model-family name for this window (e.g. "Gemini", "Claude/GPT"), empty for ungrouped
+    /// tools. Unlike <see cref="GroupHeader"/> — which the card sets only on the first row of
+    /// each group for the bar layout — this is the window's own family and is shown on every
+    /// gauge in gauge mode, where each gauge stands alone in a grid cell.
+    /// </summary>
+    public string FamilyLabel { get; }
+
+    /// <summary>True when this window belongs to a model family (controls the gauge label).</summary>
+    public bool HasFamilyLabel => !string.IsNullOrEmpty(FamilyLabel);
 
     /// <summary>
     /// Family heading shown above this row, set only on the first row of each group (e.g.
@@ -52,6 +65,11 @@ public sealed partial class UsageWindowRowViewModel : ObservableObject
     [ObservableProperty]
     public partial string PercentText { get; set; }
 
+    /// <summary>The percent as a bare number (e.g. "36"), shown large in the gauge center
+    /// with a separate "%" beneath it.</summary>
+    [ObservableProperty]
+    public partial string PercentNumber { get; set; }
+
     [ObservableProperty]
     public partial string ResetText { get; set; }
 
@@ -62,6 +80,7 @@ public sealed partial class UsageWindowRowViewModel : ObservableObject
     {
         Percent = Math.Clamp(window.UsedRatio, 0.0, 1.0) * 100.0;
         PercentText = $"{window.UsedRatio * 100:0}%";
+        PercentNumber = $"{window.UsedRatio * 100:0}";
         Level = UsageLevelClassifier.Classify(window.UsedRatio);
         ResetText = ResetTimeFormatter.ForRow(window.ResetTime);
     }
