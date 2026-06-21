@@ -147,7 +147,7 @@ public partial class App : Application
 
         _coordinator = new UsageCoordinator(
             usageService, DispatcherQueue.GetForCurrentThread(), new UsageCacheStore());
-        _notificationService = new UsageNotificationService(DispatcherQueue.GetForCurrentThread());
+        _notificationService = new UsageNotificationService();
         _notificationService.SetEnabled(notificationsEnabled);
         _coordinator.Updated += OnUsageUpdated;
         _coordinator.AuthenticationRequired += OnAuthenticationRequired;
@@ -168,11 +168,6 @@ public partial class App : Application
         if (commandLine.Contains("--notification-demo", StringComparer.OrdinalIgnoreCase))
         {
             _notificationService.ShowDemoSequence();
-        }
-        // Worst-case longest text in KO/EN/JA, to verify the fixed-size window never clips.
-        if (commandLine.Contains("--notification-longest", StringComparer.OrdinalIgnoreCase))
-        {
-            _notificationService.ShowLongestTextDemo();
         }
     }
 

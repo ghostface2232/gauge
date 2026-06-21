@@ -42,8 +42,7 @@ public static class Program
         // Visual notification QA may run beside the normal tray instance without
         // redirecting or disturbing it.
         var isNotificationDemo =
-            args.Contains("--notification-demo", StringComparer.OrdinalIgnoreCase)
-            || args.Contains("--notification-longest", StringComparer.OrdinalIgnoreCase);
+            args.Contains("--notification-demo", StringComparer.OrdinalIgnoreCase);
         var keyInstance = AppInstance.FindOrRegisterForKey(
             isNotificationDemo ? $"{AppKey}.NotificationDemo" : AppKey);
         return !keyInstance.IsCurrent;
