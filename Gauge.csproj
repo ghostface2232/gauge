@@ -56,6 +56,9 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <!-- WMI (Win32_Process) to read the Antigravity language server's command line for
+         attach-mode discovery: its PID, CSRF token, and randomized port live there. -->
+    <PackageReference Include="System.Management" Version="10.0.9" />
   </ItemGroup>
 
   <!-- Ship the tray icon asset(s) next to the exe so they can be loaded at
