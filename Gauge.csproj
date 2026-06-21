@@ -93,6 +93,29 @@
     </ItemGroup>
   </Target>
 
+  <!-- Gauge's UI ships in en/ko/ja only, but the Windows App SDK copies WinUI's
+       built-in control strings (*.mui — accessibility text, control error messages)
+       for ~85 cultures: ~166 files / ~3MB of dead weight. Each culture lives in its
+       own <culture>\ folder containing nothing but .mui, so prune every folder except
+       the ones we support. Unsupported system languages fall back to the English
+       neutral resources baked into the root DLLs; the app's own UI is already localized
+       separately. Runs after both Build (bin) and Publish (the installer's drop). -->
+  <Target Name="PruneUnusedWinUIMui" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <_GaugeMui Include="$(OutDir)**\*.mui" />
+      <_GaugeMui Include="$(PublishDir)**\*.mui" Condition="'$(PublishDir)' != ''" />
+      <!-- %(RecursiveDir) is the culture segment, e.g. "de-DE\". Keep en/ko/ja. -->
+      <_GaugeMuiPrune Include="@(_GaugeMui)"
+                      Condition="'%(RecursiveDir)' != '' and
+                                 '%(RecursiveDir)' != 'en-us\' and '%(RecursiveDir)' != 'en-US\' and
+                                 '%(RecursiveDir)' != 'en-GB\' and '%(RecursiveDir)' != 'ko-KR\' and
+                                 '%(RecursiveDir)' != 'ja-JP\'" />
+    </ItemGroup>
+    <Delete Files="@(_GaugeMuiPrune)" />
+    <!-- The pruned cultures' folders hold nothing but those .mui, so drop the now-empty dirs too. -->
+    <RemoveDir Directories="@(_GaugeMuiPrune->'%(RootDir)%(Directory)'->Distinct())" />
+  </Target>
+
   <!-- Unpackaged WinUI `dotnet publish` drops the app's merged resources index
        (Gauge.pri). Without it, Microsoft.UI.Xaml fails to load XamlControlsResources
        and the app crashes at startup (stowed exception 0xC000027B). Copy it from the
