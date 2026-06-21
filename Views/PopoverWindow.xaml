@@ -492,7 +492,7 @@
                      when the content actually exceeds the (usage-matched) panel height. -->
                 <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollMode="Disabled" Padding="16,0,16,0">
-                <StackPanel Spacing="14" VerticalAlignment="Top" Margin="0,0,0,12">
+                <StackPanel Spacing="8" VerticalAlignment="Top" Margin="0,0,0,12">
                     <!-- App-wide toggles, grouped in one card directly under the title:
                          usage notifications and run-on-startup. Two-way bound to the
                          GlobalSettingsViewModel; the empty On/Off content keeps the switch
