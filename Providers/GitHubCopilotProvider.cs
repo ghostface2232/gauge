@@ -156,9 +156,12 @@ public sealed class GitHubCopilotProvider : IUsageProvider
         {
             return Math.Clamp(1.0 - percentRemaining / 100.0, 0.0, 1.0);
         }
-        if (snap.GetDoubleOrNull("entitlement") is { } entitlement && entitlement > 0)
+        // Require BOTH fields: a missing `remaining` means "unknown", not zero. Defaulting it
+        // to 0 would read as 100% used and fire a false danger alert — a partial response or a
+        // schema drift on this undocumented endpoint must skip the window, never assume it spent.
+        if (snap.GetDoubleOrNull("entitlement") is { } entitlement && entitlement > 0
+            && snap.GetDoubleOrNull("remaining") is { } remaining)
         {
-            var remaining = snap.GetDoubleOrNull("remaining") ?? 0;
             return Math.Clamp(1.0 - remaining / entitlement, 0.0, 1.0);
         }
         return null;

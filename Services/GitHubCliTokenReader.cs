@@ -74,21 +74,23 @@ public sealed class GitHubCliTokenReader : IGitHubCliTokenReader
             try
             {
                 await process.WaitForExitAsync(linked.Token);
+                var token = (await stdoutTask).Trim();
+                try { await drainErr; } catch { /* stderr discarded */ }
+                // Only a clean exit yields a usable token; a non-zero exit means gh is signed out.
+                return process.ExitCode == 0 && token.Length > 0 ? token : null;
             }
-            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
+                // Kill the gh process so neither our own timeout nor a caller cancel (app exit /
+                // aborted refresh) leaves an orphaned child. A caller cancel then propagates;
+                // only our timeout is swallowed into a null "no token" result.
                 TryKill(process);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
                 return null;
             }
-
-            var token = (await stdoutTask).Trim();
-            try { await drainErr; } catch { /* stderr discarded */ }
-            // Only a clean exit yields a usable token; a non-zero exit means gh is signed out.
-            return process.ExitCode == 0 && token.Length > 0 ? token : null;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
         {

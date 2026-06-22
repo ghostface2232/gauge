@@ -62,6 +62,17 @@ public sealed class GitHubCopilotProviderTests
     }
 
     [Fact]
+    public async Task SkipsQuotaWithEntitlementButNoRemaining()
+    {
+        // Partial response / schema drift: entitlement present, remaining absent. Must NOT be
+        // read as 0 remaining (100% used) — the window is skipped, never assumed spent.
+        const string json = """
+        { "quota_snapshots": { "premium_interactions": { "has_quota": true, "unlimited": false, "entitlement": 300 } } }
+        """;
+        Assert.Empty((await Snapshot(json)).Windows);
+    }
+
+    [Fact]
     public async Task SkipsUnlimitedAndUnmeteredQuotas()
     {
         const string json = """
