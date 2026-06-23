@@ -32,6 +32,8 @@ internal static class Strings
         ["Settings_ViewModeDesc"]  = ["사용량 표시 방식 선택", "How usage is displayed", "使用量の表示方法を選択"],
         ["ViewMode_Bar"]          = ["바 모드",          "Bar",               "バー"],
         ["ViewMode_Gauge"]        = ["게이지 모드",       "Gauge",             "ゲージ"],
+        ["Settings_DynamicTrayIcon"] = ["동적 트레이 아이콘", "Dynamic tray icon", "動的トレイアイコン"],
+        ["Settings_DynamicTrayIconDesc"] = ["사용량에 따라 아이콘 색상 변경", "Recolor the icon by usage level", "使用量に応じてアイコンの色を変更"],
         ["Tray_StartOnBoot"]  = ["시작프로그램 등록",   "Start on boot",     "スタートアップに登録"],
         ["Tray_Exit"]         = ["종료",             "Exit",              "終了"],
 

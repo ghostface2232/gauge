@@ -29,6 +29,7 @@ public partial class App : Application
     private StartupService? _startupService;
     private NotificationSettingsStore? _notificationSettingsStore;
     private ViewModeSettingsStore? _viewModeSettingsStore;
+    private DynamicTrayIconSettingsStore? _dynamicTrayIconSettingsStore;
     private UpdateService? _updateService;
     private HttpClient? _httpClient;
     private AntigravityProvider? _antigravityProvider;
@@ -131,10 +132,17 @@ public partial class App : Application
         _trayIcon.SetNotificationsChecked(notificationsEnabled);
         _viewModeSettingsStore = new ViewModeSettingsStore();
         var viewMode = _viewModeSettingsStore.Load();
-        var globalSettings = new GlobalSettingsViewModel(notificationsEnabled, _startupService.IsEnabled(), viewMode);
+        _dynamicTrayIconSettingsStore = new DynamicTrayIconSettingsStore();
+        var dynamicTrayIcon = _dynamicTrayIconSettingsStore.Load();
+        // Pin the tray to the base icon up front when dynamic recoloring is off, so the first
+        // usage refresh never bumps the icon to a caution/danger variant.
+        _trayIcon.SetDynamicIconEnabled(dynamicTrayIcon);
+        var globalSettings = new GlobalSettingsViewModel(
+            notificationsEnabled, _startupService.IsEnabled(), viewMode, dynamicTrayIcon);
         globalSettings.NotificationsToggleRequested += OnGlobalNotificationsToggled;
         globalSettings.StartOnBootToggleRequested += OnGlobalStartOnBootToggled;
         globalSettings.ViewModeChangeRequested += OnGlobalViewModeChanged;
+        globalSettings.DynamicTrayIconToggleRequested += OnGlobalDynamicTrayIconToggled;
 
         _updateService = new UpdateService();
         _settingsViewModel = new SettingsViewModel(_toolRegistry, _authentication, _updateService, globalSettings);
@@ -275,6 +283,18 @@ public partial class App : Application
         // Bar and gauge cards differ in height; re-measure so the popover resizes to fit
         // (a no-op while the settings view is up — returning to usage re-measures anyway).
         _popover?.RefreshUsageLayout();
+    }
+
+    private void OnGlobalDynamicTrayIconToggled(object? sender, bool enabled)
+    {
+        _dynamicTrayIconSettingsStore?.Save(enabled);
+        _trayIcon?.SetDynamicIconEnabled(enabled);
+        // Re-enabling: apply the current usage level right away so the icon catches up
+        // without waiting for the next refresh cycle.
+        if (enabled && _viewModel is not null)
+        {
+            _trayIcon?.UpdateUsageLevel(_viewModel.HighestUsageRatio);
+        }
     }
 
     private void OnGlobalStartOnBootToggled(object? sender, bool enabled)

@@ -19,9 +19,34 @@ public sealed class GlobalSettingsViewModelTests
         Assert.True(vm.NotificationsEnabled);
         Assert.True(vm.StartOnBoot);
         Assert.Equal((int)UsageViewMode.Gauge, vm.ViewModeIndex);
+        Assert.True(vm.DynamicTrayIcon);
         Assert.Equal(0, notifications);
         Assert.Equal(0, startup);
         Assert.Equal(0, viewModeChanges);
+    }
+
+    [Fact]
+    public void ConstructorReflectsDynamicTrayIconWithoutRaisingEvent()
+    {
+        var raised = 0;
+        var vm = new GlobalSettingsViewModel(
+            notificationsEnabled: true, startOnBoot: true, viewMode: UsageViewMode.Bar, dynamicTrayIcon: false);
+        vm.DynamicTrayIconToggleRequested += (_, _) => raised++;
+
+        Assert.False(vm.DynamicTrayIcon);
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void TogglingDynamicTrayIconRaisesRequestWithNewValue()
+    {
+        var vm = new GlobalSettingsViewModel(notificationsEnabled: true, startOnBoot: false, viewMode: UsageViewMode.Bar);
+        bool? requested = null;
+        vm.DynamicTrayIconToggleRequested += (_, value) => requested = value;
+
+        vm.DynamicTrayIcon = false;
+
+        Assert.False(requested);
     }
 
     [Fact]

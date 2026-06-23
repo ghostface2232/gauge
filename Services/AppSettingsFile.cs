@@ -19,6 +19,13 @@ internal sealed class AppSettingsDto
     public string? ViewMode { get; set; }
 
     /// <summary>
+    /// Whether the tray icon reacts to usage level (recolors at ≥70% / ≥90%). Null (absent)
+    /// reads as enabled. When off, only the base icon is shown and it tracks the light/dark
+    /// taskbar theme.
+    /// </summary>
+    public bool? DynamicTrayIcon { get; set; }
+
+    /// <summary>
     /// Any properties not modelled above — keys written by a newer build, or settings this
     /// build doesn't know about. Captured on load and written back verbatim so a
     /// read-modify-write that touches one field never drops another's data.

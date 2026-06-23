@@ -556,6 +556,26 @@
                                           ItemsSource="{Binding Global.ViewModeOptions}"
                                           SelectedIndex="{Binding Global.ViewModeIndex, Mode=TwoWay}" />
                             </Grid>
+                            <Border Height="1" Margin="0,2"
+                                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                            <!-- Dynamic tray icon: when off, the tray shows only the base icon
+                                 and tracks the light/dark taskbar theme (no usage recoloring). -->
+                            <Grid MinHeight="48" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="{loc:Localize Key=Settings_DynamicTrayIcon}"
+                                               Style="{StaticResource BodyTextBlockStyle}" />
+                                    <TextBlock Text="{loc:Localize Key=Settings_DynamicTrayIconDesc}"
+                                               Opacity="0.6" TextWrapping="Wrap"
+                                               Style="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                              MinWidth="0" OnContent="" OffContent=""
+                                              IsOn="{Binding Global.DynamicTrayIcon, Mode=TwoWay}" />
+                            </Grid>
                         </StackPanel>
                     </Border>
 

@@ -73,6 +73,11 @@ public sealed class TrayIconService : IDisposable
     // theme to pick the icon asset; survives theme switches.
     private string _levelSuffix = string.Empty;
 
+    // When false, the icon ignores usage level and shows only the base variant for the
+    // current taskbar theme. The theme-switch path (OnColorValuesChanged) keeps working
+    // either way — turning this off only drops the usage-driven recoloring.
+    private bool _dynamicIconEnabled = true;
+
     // Held so we can dispose the previous GDI icon handle when swapping icons.
     private Icon? _currentIcon;
     // We own the start-on-boot state and reflect it via right-aligned text.
@@ -196,10 +201,16 @@ public sealed class TrayIconService : IDisposable
     /// <summary>
     /// Updates the tray icon to reflect the highest usage ratio across all tools:
     /// normal below 70%, the caution variant at ≥70%, the danger variant at ≥90%.
-    /// No-op (no GDI churn) when the resulting variant is unchanged.
+    /// No-op (no GDI churn) when the resulting variant is unchanged, or when the dynamic
+    /// icon is disabled (the base variant stays pinned regardless of usage).
     /// </summary>
     public void UpdateUsageLevel(double highestRatio)
     {
+        if (!_dynamicIconEnabled)
+        {
+            return;
+        }
+
         var suffix = SuffixForRatio(highestRatio);
         if (suffix == _levelSuffix)
         {
@@ -210,6 +221,32 @@ public sealed class TrayIconService : IDisposable
         if (LoadThemedIcon() is { } icon)
         {
             UpdateIcon(icon);
+        }
+    }
+
+    /// <summary>
+    /// Enables or disables the usage-driven recoloring. When disabled, the icon drops back to
+    /// the base variant immediately and stays there (still tracking the light/dark taskbar
+    /// theme); subsequent <see cref="UpdateUsageLevel"/> calls are ignored. When re-enabled,
+    /// the caller should re-apply the current ratio via <see cref="UpdateUsageLevel"/>.
+    /// </summary>
+    public void SetDynamicIconEnabled(bool enabled)
+    {
+        if (_dynamicIconEnabled == enabled)
+        {
+            return;
+        }
+
+        _dynamicIconEnabled = enabled;
+
+        // Turning it off: clear any usage suffix now so the base icon shows right away.
+        if (!enabled && _levelSuffix != string.Empty)
+        {
+            _levelSuffix = string.Empty;
+            if (LoadThemedIcon() is { } icon)
+            {
+                UpdateIcon(icon);
+            }
         }
     }
 

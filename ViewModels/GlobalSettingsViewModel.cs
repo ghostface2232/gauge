@@ -18,11 +18,13 @@ public sealed partial class GlobalSettingsViewModel : ObservableObject
 {
     private bool _suspendSideEffects;
 
-    public GlobalSettingsViewModel(bool notificationsEnabled, bool startOnBoot, UsageViewMode viewMode)
+    public GlobalSettingsViewModel(
+        bool notificationsEnabled, bool startOnBoot, UsageViewMode viewMode, bool dynamicTrayIcon = true)
     {
         SyncFromSystem(notificationsEnabled, startOnBoot);
         _suspendSideEffects = true;
         ViewModeIndex = (int)viewMode;
+        DynamicTrayIcon = dynamicTrayIcon;
         _suspendSideEffects = false;
     }
 
@@ -35,8 +37,17 @@ public sealed partial class GlobalSettingsViewModel : ObservableObject
     /// <summary>Raised when the user picks a different card view mode (not on a programmatic sync).</summary>
     public event EventHandler<UsageViewMode>? ViewModeChangeRequested;
 
+    /// <summary>Raised when the user flips the dynamic tray-icon toggle (not on a programmatic sync).</summary>
+    public event EventHandler<bool>? DynamicTrayIconToggleRequested;
+
     [ObservableProperty] public partial bool NotificationsEnabled { get; set; }
     [ObservableProperty] public partial bool StartOnBoot { get; set; }
+
+    /// <summary>
+    /// Whether the tray icon recolors by usage level. When off, only the base icon is shown
+    /// (it still tracks the light/dark taskbar theme).
+    /// </summary>
+    [ObservableProperty] public partial bool DynamicTrayIcon { get; set; }
 
     /// <summary>
     /// Selected card view mode as a ComboBox index — 0 = Bar, 1 = Gauge — matching
@@ -58,6 +69,12 @@ public sealed partial class GlobalSettingsViewModel : ObservableObject
     {
         if (_suspendSideEffects) return;
         NotificationsToggleRequested?.Invoke(this, value);
+    }
+
+    partial void OnDynamicTrayIconChanged(bool value)
+    {
+        if (_suspendSideEffects) return;
+        DynamicTrayIconToggleRequested?.Invoke(this, value);
     }
 
     partial void OnStartOnBootChanged(bool value)
